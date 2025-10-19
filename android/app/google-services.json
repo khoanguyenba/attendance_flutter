@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "786680722015",
+    "project_id": "notes-bbe41",
+    "storage_bucket": "notes-bbe41.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:786680722015:android:3ba14869cb3bb39869a1ea",
+        "android_client_info": {
+          "package_name": "com.example.notes_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7M5oRIiDtdrpVEb1eTpvLqOuotKYinoU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
