@@ -9,13 +9,22 @@ class Register extends UseCase<AppUser?, RegisterParams> {
 
   @override
   Future<AppUser?> call(RegisterParams params) {
-    return repository.register(params.email, params.password);
+    return repository.register(
+      params.email,
+      params.password,
+      params.employeeId,
+    );
   }
 }
 
 class RegisterParams {
   final String email;
   final String password;
+  final String employeeId;
 
-  RegisterParams({required this.email, required this.password});
+  RegisterParams({
+    required this.email,
+    required this.password,
+    required this.employeeId,
+  });
 }

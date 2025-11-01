@@ -30,22 +30,20 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
   Future<List<EmployeeModel>> getEmployees(Map<String, dynamic> params) async {
     try {
       Query query = _firestore.collection(_collection);
-      
+
       // Apply filters based on params
-      if (params.containsKey('departmentId') && params['departmentId'] != null) {
+      if (params.containsKey('departmentId') &&
+          params['departmentId'] != null) {
         query = query.where('departmentId', isEqualTo: params['departmentId']);
       }
       if (params.containsKey('titleId') && params['titleId'] != null) {
         query = query.where('titleId', isEqualTo: params['titleId']);
       }
-      
+
       final querySnapshot = await query.get();
       return querySnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return EmployeeModel.fromListJson({
-          'id': doc.id,
-          ...data,
-        });
+        return EmployeeModel.fromListJson({'id': doc.id, ...data});
       }).toList();
     } catch (e) {
       throw Exception('Failed to get employees: $e');
@@ -58,10 +56,7 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
       final doc = await _firestore.collection(_collection).doc(id).get();
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
-        return EmployeeModel.fromJson({
-          'id': doc.id,
-          ...data,
-        });
+        return EmployeeModel.fromJson({'id': doc.id, ...data});
       } else {
         throw Exception('Employee not found');
       }
@@ -84,11 +79,8 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
     try {
       final querySnapshot = await _firestore.collection(_collection).get();
       return querySnapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return EmployeeBasicInfoModel.fromJson({
-          'id': doc.id,
-          ...data,
-        });
+        final data = doc.data();
+        return EmployeeBasicInfoModel.fromJson({'id': doc.id, ...data});
       }).toList();
     } catch (e) {
       throw Exception('Failed to get employee basic info: $e');

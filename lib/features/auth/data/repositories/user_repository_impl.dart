@@ -1,4 +1,5 @@
 import 'package:attendance_system/features/auth/data/datasources/user_remote_datasource.dart';
+import 'package:attendance_system/features/auth/data/models/user_model.dart';
 import 'package:attendance_system/features/auth/domain/entities/app_user.dart';
 import 'package:attendance_system/features/auth/domain/repositories/user_repository.dart';
 
@@ -17,8 +18,11 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
-  Future<AppUser?> login(String email, String password) async {
-    final userModel = await remoteDataSource.login(email, password);
+  Future<AppUser?> login(String username, String password) async {
+    await remoteDataSource.login(
+      LoginCommand(username: username, password: password),
+    );
+    var userModel = await remoteDataSource.getCurrentUser();
     if (userModel != null) {
       return userModel.toEntity();
     }
@@ -31,11 +35,18 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
-  Future<AppUser?> register(String email, String password) async {
-    final userModel = await remoteDataSource.register(email, password);
-    if (userModel != null) {
-      return userModel.toEntity();
-    }
+  Future<AppUser?> register(
+    String username,
+    String password,
+    String employeeId,
+  ) async {
+    await remoteDataSource.register(
+      CreateUserCommand(
+        userName: username,
+        password: password,
+        employeeId: employeeId,
+      ),
+    );
     return null;
   }
 }
