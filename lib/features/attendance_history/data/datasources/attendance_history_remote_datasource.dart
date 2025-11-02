@@ -72,10 +72,40 @@ class AttendanceHistoryRemoteDataSourceImpl extends BaseRemoteDataSource
       queryParameters: query.toQueryParams(),
     );
     if (response.statusCode == 200) {
-      final data = response.data as List<dynamic>;
-      return data
-          .map((e) => AttendanceHistoryDto.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final resp = response.data;
+
+      // If the API returns a plain list
+      if (resp is List) {
+        return resp
+            .map((e) => AttendanceHistoryDto.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+
+      // If the API returns a paged object like { items: [...], total: 123 }
+      if (resp is Map<String, dynamic>) {
+        dynamic items = resp['items'] ?? resp['data'] ?? resp['results'] ?? resp['rows'];
+
+        // Some APIs wrap the list deeper
+        if (items == null) {
+          // try common nested shapes
+          if (resp.containsKey('data') && resp['data'] is Map) {
+            final nested = resp['data'] as Map<String, dynamic>;
+            items = nested['items'] ?? nested['data'];
+          }
+        }
+
+        if (items is List) {
+          return items
+              .map((e) => AttendanceHistoryDto.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+
+        // If response is a single object representing one item
+        return [AttendanceHistoryDto.fromJson(resp)];
+      }
+
+      // Unknown shape but not fatal: try to parse as single item
+      return [AttendanceHistoryDto.fromJson(Map<String, dynamic>.from(resp))];
     }
     throw ErrorDataException(
       message: response.data['message'] ?? 'Get attendance histories failed',
