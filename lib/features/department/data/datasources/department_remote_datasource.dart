@@ -75,10 +75,26 @@ class DepartmentRemoteDataSourceImpl extends BaseRemoteDataSource
       queryParameters: query.toQueryParams(),
     );
     if (response.statusCode == 200) {
-      final data = response.data as List<dynamic>;
-      return data
-          .map((e) => DepartmentDto.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final resp = response.data;
+      if (resp is List) {
+        return resp
+            .map((e) => DepartmentDto.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      if (resp is Map<String, dynamic>) {
+        dynamic items = resp['items'] ?? resp['data'] ?? resp['results'] ?? resp['rows'];
+        if (items == null && resp.containsKey('data') && resp['data'] is Map) {
+          final nested = resp['data'] as Map<String, dynamic>;
+          items = nested['items'] ?? nested['data'];
+        }
+        if (items is List) {
+          return items
+              .map((e) => DepartmentDto.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+        return [DepartmentDto.fromJson(resp)];
+      }
+      return [DepartmentDto.fromJson(Map<String, dynamic>.from(resp))];
     }
     throw ErrorDataException(
       message: response.data['message'] ?? 'Get departments failed',
