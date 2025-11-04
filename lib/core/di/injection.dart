@@ -1,3 +1,7 @@
+import 'package:attendance_system/features/leave_request/domain/usecases/approve_leave_request_usecase.dart';
+import 'package:attendance_system/features/leave_request/domain/usecases/reject_leave_request_usecase.dart';
+import 'package:attendance_system/features/user/domain/usecases/create_user_usecase.dart';
+import 'package:attendance_system/features/user/domain/usecases/logout_usecase.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -159,6 +163,9 @@ Future<void> initDependencies() async {
   getIt.registerFactory(
     () => GetCurrentUserUseCase(getIt<AppUserRepository>()),
   );
+  getIt.registerFactory(() => LogoutUsecase(getIt<AppUserRepository>()));
+  getIt.registerFactory(() => CreateUserUseCase(getIt<AppUserRepository>()));
+
   // Employee usecases
   getIt.registerFactory(
     () => CreateEmployeeUseCase(getIt<AppEmployeeRepository>()),
@@ -220,6 +227,12 @@ Future<void> initDependencies() async {
   );
   getIt.registerFactory(
     () => GetPageLeaveRequestUseCase(getIt<AppLeaveRequestRepository>()),
+  );
+  getIt.registerFactory(
+    () => ApproveLeaveRequestUseCase(getIt<AppLeaveRequestRepository>()),
+  );
+  getIt.registerFactory(
+    () => RejectLeaveRequestUseCase(getIt<AppLeaveRequestRepository>()),
   );
   // WorkTime usecases
   getIt.registerFactory(
