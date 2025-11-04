@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/di/injection.dart';
-import '../domain/entities/app_work_time.dart';
 import '../domain/usecases/create_work_time_usecase.dart';
 import '../domain/usecases/update_work_time_usecase.dart';
 import '../domain/usecases/get_work_time_by_id_usecase.dart';
@@ -316,7 +315,7 @@ class _EditWorkTimeScreenState extends State<EditWorkTimeScreen> {
                   _isActive = value;
                 });
               },
-              activeColor: Colors.green,
+              activeThumbColor: Colors.green,
             ),
             const SizedBox(height: 16),
             Container(

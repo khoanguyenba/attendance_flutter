@@ -3,6 +3,7 @@ import '../../../core/di/injection.dart';
 import '../domain/entities/app_work_time.dart';
 import '../domain/usecases/get_page_work_time_usecase.dart';
 import '../domain/usecases/delete_work_time_usecase.dart';
+import '../../user/domain/usecases/get_current_user_usecase.dart';
 import 'edit_work_time_screen.dart';
 
 class WorkTimeListScreen extends StatefulWidget {
@@ -15,10 +16,14 @@ class WorkTimeListScreen extends StatefulWidget {
 class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
   late final GetPageWorkTimeUseCase _getPageUseCase;
   late final DeleteWorkTimeUseCase _deleteUseCase;
-  
+  late final GetCurrentUserUseCase _getCurrentUserUseCase;
+
   List<AppWorkTime> workTimes = [];
   bool isLoading = false;
   String? error;
+
+  // User info
+  bool _canManageWorkTime = false;
 
   // Filter
   bool? _filterIsActive;
@@ -28,8 +33,29 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
     super.initState();
     _getPageUseCase = resolve<GetPageWorkTimeUseCase>();
     _deleteUseCase = resolve<DeleteWorkTimeUseCase>();
-    
-    _loadWorkTimes();
+    _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
+
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadUserRole();
+    await _loadWorkTimes();
+  }
+
+  Future<void> _loadUserRole() async {
+    try {
+      final currentUser = await _getCurrentUserUseCase.call();
+      if (currentUser != null && mounted) {
+        setState(() {
+          _canManageWorkTime =
+              currentUser.role.toLowerCase() == 'admin' ||
+              currentUser.role.toLowerCase() == 'manager';
+        });
+      }
+    } catch (e) {
+      // Ignore error, default to false
+    }
   }
 
   Future<void> _loadWorkTimes() async {
@@ -63,7 +89,9 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc chắn muốn xóa ca làm việc "${workTime.name}"?'),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa ca làm việc "${workTime.name}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -89,9 +117,9 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
         }
       }
     }
@@ -187,20 +215,22 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
             icon: const Icon(Icons.filter_alt),
             onPressed: _showFilterDialog,
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EditWorkTimeScreen(), // null workTimeId = create mode
-                ),
-              );
-              if (result == true) {
-                _loadWorkTimes();
-              }
-            },
-          ),
+          if (_canManageWorkTime)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const EditWorkTimeScreen(), // null workTimeId = create mode
+                  ),
+                );
+                if (result == true) {
+                  _loadWorkTimes();
+                }
+              },
+            ),
         ],
       ),
       body: _buildBody(),
@@ -229,9 +259,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
     }
 
     if (workTimes.isEmpty) {
-      return const Center(
-        child: Text('Không có ca làm việc nào'),
-      );
+      return const Center(child: Text('Không có ca làm việc nào'));
     }
 
     return RefreshIndicator(
@@ -287,47 +315,48 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
                   ),
                 ],
               ),
-              trailing: PopupMenuButton(
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit),
-                        SizedBox(width: 8),
-                        Text('Chỉnh sửa'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Xóa', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (value) async {
-                  if (value == 'edit') {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditWorkTimeScreen(
-                          workTimeId: workTime.id,
+              trailing: _canManageWorkTime
+                  ? PopupMenuButton(
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit),
+                              SizedBox(width: 8),
+                              Text('Chỉnh sửa'),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                    if (result == true) {
-                      _loadWorkTimes();
-                    }
-                  } else if (value == 'delete') {
-                    _deleteWorkTime(workTime);
-                  }
-                },
-              ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Xóa', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onSelected: (value) async {
+                        if (value == 'edit') {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  EditWorkTimeScreen(workTimeId: workTime.id),
+                            ),
+                          );
+                          if (result == true) {
+                            _loadWorkTimes();
+                          }
+                        } else if (value == 'delete') {
+                          _deleteWorkTime(workTime);
+                        }
+                      },
+                    )
+                  : null,
             ),
           );
         },
@@ -335,4 +364,3 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
     );
   }
 }
-
