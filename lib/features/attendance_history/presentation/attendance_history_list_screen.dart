@@ -3,27 +3,38 @@ import 'package:intl/intl.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/attendance_history.dart';
 import '../domain/usecases/get_page_attendance_history_usecase.dart';
-import '../domain/usecases/delete_attendance_history_usecase.dart';
 import '../../employee/domain/entities/app_employee.dart';
 import '../../employee/domain/usecases/get_page_employee_usecase.dart';
+import '../../worktime/domain/entities/app_work_time.dart';
+import '../../worktime/domain/usecases/get_page_work_time_usecase.dart';
+import '../../user/domain/usecases/get_current_user_usecase.dart';
 import 'create_attendance_history_screen.dart';
 
 class AttendanceHistoryListScreen extends StatefulWidget {
   const AttendanceHistoryListScreen({super.key});
 
   @override
-  State<AttendanceHistoryListScreen> createState() => _AttendanceHistoryListScreenState();
+  State<AttendanceHistoryListScreen> createState() =>
+      _AttendanceHistoryListScreenState();
 }
 
-class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScreen> {
+class _AttendanceHistoryListScreenState
+    extends State<AttendanceHistoryListScreen> {
   late final GetPageAttendanceHistoryUseCase _getPageUseCase;
-  late final DeleteAttendanceHistoryUseCase _deleteUseCase;
   late final GetPageEmployeeUseCase _getEmployeesUseCase;
-  
+  late final GetPageWorkTimeUseCase _getWorkTimesUseCase;
+  late final GetCurrentUserUseCase _getCurrentUserUseCase;
+
   List<AppAttendanceHistory> attendanceHistories = [];
   Map<String, AppEmployee> employeesMap = {};
+  Map<String, AppWorkTime> workTimesMap = {};
   bool isLoading = false;
   String? error;
+
+  // User info
+  String? _currentUserRole;
+  String? _currentUserEmployeeId;
+  bool _canSelectEmployee = false;
 
   // Filters
   String? _selectedEmployeeId;
@@ -36,9 +47,10 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
   void initState() {
     super.initState();
     _getPageUseCase = resolve<GetPageAttendanceHistoryUseCase>();
-    _deleteUseCase = resolve<DeleteAttendanceHistoryUseCase>();
     _getEmployeesUseCase = resolve<GetPageEmployeeUseCase>();
-    
+    _getWorkTimesUseCase = resolve<GetPageWorkTimeUseCase>();
+    _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
+
     _loadInitialData();
   }
 
@@ -49,16 +61,38 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
     });
 
     try {
+      // Get current user info
+      final currentUser = await _getCurrentUserUseCase.call();
+      if (currentUser != null) {
+        _currentUserRole = currentUser.role;
+        _currentUserEmployeeId = currentUser.employeeId;
+        _canSelectEmployee =
+            currentUser.role.toLowerCase() == 'admin' ||
+            currentUser.role.toLowerCase() == 'manager';
+
+        // If not admin/manager, auto-select current employee
+        if (!_canSelectEmployee) {
+          _selectedEmployeeId = currentUser.employeeId;
+        }
+      }
+
       // Load employees for mapping
       final employees = await _getEmployeesUseCase.call(
         pageIndex: 1,
         pageSize: 1000,
       );
-      
+
+      // Load work times for mapping
+      final workTimes = await _getWorkTimesUseCase.execute(
+        pageIndex: 1,
+        pageSize: 1000,
+      );
+
       setState(() {
         employeesMap = {for (var e in employees) e.id: e};
+        workTimesMap = {for (var w in workTimes) w.id: w};
       });
-      
+
       await _loadAttendanceHistories();
     } catch (e) {
       setState(() {
@@ -96,45 +130,6 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
     }
   }
 
-  Future<void> _deleteAttendanceHistory(AppAttendanceHistory history) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: const Text('Bạn có chắc chắn muốn xóa lịch sử chấm công này?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        await _deleteUseCase.call(history.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Xóa lịch sử chấm công thành công')),
-          );
-          _loadAttendanceHistories();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi: $e')),
-          );
-        }
-      }
-    }
-  }
-
   Future<void> _selectDateRange() async {
     final picked = await showDateRangePicker(
       context: context,
@@ -156,7 +151,10 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
 
   void _clearFilters() {
     setState(() {
-      _selectedEmployeeId = null;
+      // Only clear employee filter if user can select employee
+      if (_canSelectEmployee) {
+        _selectedEmployeeId = null;
+      }
       _startDate = null;
       _endDate = null;
     });
@@ -212,7 +210,9 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
 
     final content = Column(
       children: [
-        if (_selectedEmployeeId != null || _startDate != null || _endDate != null)
+        if ((_canSelectEmployee && _selectedEmployeeId != null) ||
+            _startDate != null ||
+            _endDate != null)
           _buildFilterChips(),
         Expanded(child: _buildBody()),
       ],
@@ -244,7 +244,8 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const CreateAttendanceHistoryScreen(),
+                          builder: (context) =>
+                              const CreateAttendanceHistoryScreen(),
                         ),
                       );
                       if (result == true) {
@@ -296,9 +297,11 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
       child: Wrap(
         spacing: 8,
         children: [
-          if (_selectedEmployeeId != null)
+          if (_canSelectEmployee && _selectedEmployeeId != null)
             Chip(
-              label: Text('NV: ${employeesMap[_selectedEmployeeId]?.fullName ?? "Unknown"}'),
+              label: Text(
+                'NV: ${employeesMap[_selectedEmployeeId]?.fullName ?? "Unknown"}',
+              ),
               onDeleted: () {
                 setState(() {
                   _selectedEmployeeId = null;
@@ -337,31 +340,29 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DropdownButtonFormField<String>(
-              value: _selectedEmployeeId,
-              decoration: const InputDecoration(
-                labelText: 'Nhân viên',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('Tất cả'),
+            if (_canSelectEmployee)
+              DropdownButtonFormField<String>(
+                initialValue: _selectedEmployeeId,
+                decoration: const InputDecoration(
+                  labelText: 'Nhân viên',
+                  border: OutlineInputBorder(),
                 ),
-                ...employeesMap.values.map((employee) {
-                  return DropdownMenuItem(
-                    value: employee.id,
-                    child: Text(employee.fullName),
-                  );
-                }).toList(),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedEmployeeId = value;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Tất cả')),
+                  ...employeesMap.values.map((employee) {
+                    return DropdownMenuItem(
+                      value: employee.id,
+                      child: Text(employee.fullName),
+                    );
+                  }),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedEmployeeId = value;
+                  });
+                },
+              ),
+            if (_canSelectEmployee) const SizedBox(height: 16),
             ListTile(
               title: const Text('Khoảng thời gian'),
               subtitle: _startDate != null && _endDate != null
@@ -419,9 +420,7 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
     }
 
     if (attendanceHistories.isEmpty) {
-      return const Center(
-        child: Text('Không có lịch sử chấm công nào'),
-      );
+      return const Center(child: Text('Không có lịch sử chấm công nào'));
     }
 
     return RefreshIndicator(
@@ -431,7 +430,8 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
         itemBuilder: (context, index) {
           final history = attendanceHistories[index];
           final employee = employeesMap[history.employeeId];
-          
+          final workTime = workTimesMap[history.workTimeId];
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: ListTile(
@@ -444,55 +444,50 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
                   color: Colors.white,
                 ),
               ),
-              title: Text(employee?.fullName ?? 'Unknown Employee'),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              title: Row(
                 children: [
-                  Text(_dateFormat.format(history.attendanceDate)),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getTypeColor(history.type).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _getTypeText(history.type),
-                          style: TextStyle(
-                            color: _getTypeColor(history.type),
-                            fontSize: 12,
-                          ),
-                        ),
+                  Expanded(
+                    child: Text(
+                      '${workTime?.name ?? 'Unknown Work Time'} - ${_getTypeText(history.type)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(history.status).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _getStatusText(history.status),
-                          style: TextStyle(
-                            color: _getStatusColor(history.status),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _deleteAttendanceHistory(history),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    employee?.fullName ?? 'Unknown Employee',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_dateFormat.format(history.attendanceDate)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(history.status).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _getStatusText(history.status),
+                      style: TextStyle(
+                        color: _getStatusColor(history.status),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -501,4 +496,3 @@ class _AttendanceHistoryListScreenState extends State<AttendanceHistoryListScree
     );
   }
 }
-

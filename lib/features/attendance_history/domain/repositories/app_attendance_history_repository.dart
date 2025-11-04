@@ -4,6 +4,7 @@ abstract class AppAttendanceHistoryRepository {
   Future<AppAttendanceHistory> createAttendanceHistory({
     required AttendanceType type,
     required AttendanceStatus status,
+    required String workTimeId,
   });
   Future<void> deleteAttendanceHistory(String id);
 

@@ -3,8 +3,17 @@ import 'package:attendance_system/features/attendance_history/domain/entities/at
 class CreateAttendanceHistoryCommand {
   final AttendanceType type;
   final AttendanceStatus status;
+  final String workTimeId;
 
-  CreateAttendanceHistoryCommand({required this.type, required this.status});
+  CreateAttendanceHistoryCommand({
+    required this.type,
+    required this.status,
+    required this.workTimeId,
+  });
 
-  Map<String, dynamic> toJson() => {'type': type.name, 'status': status.name};
+  Map<String, dynamic> toJson() => {
+    'type': type.index,
+    'status': status.index,
+    'workTimeId': workTimeId,
+  };
 }

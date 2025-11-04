@@ -7,6 +7,7 @@ class AttendanceHistoryDto extends AppAttendanceHistory {
     required super.attendanceDate,
     required super.type,
     required super.status,
+    required super.workTimeId,
   });
 
   factory AttendanceHistoryDto.fromJson(Map<String, dynamic> json) {
@@ -16,9 +17,11 @@ class AttendanceHistoryDto extends AppAttendanceHistory {
     final rawDate = json['attendanceDate'];
     final rawType = json['type'];
     final rawStatus = json['status'];
+    final rawWorkTimeId = json['workTimeId'];
 
     final id = rawId == null ? '' : rawId.toString();
     final employeeId = rawEmployeeId == null ? '' : rawEmployeeId.toString();
+    final workTimeId = rawWorkTimeId == null ? '' : rawWorkTimeId.toString();
 
     DateTime attendanceDate;
     if (rawDate is int) {
@@ -40,6 +43,7 @@ class AttendanceHistoryDto extends AppAttendanceHistory {
       attendanceDate: attendanceDate,
       type: type,
       status: status,
+      workTimeId: workTimeId,
     );
   }
 
@@ -48,8 +52,9 @@ class AttendanceHistoryDto extends AppAttendanceHistory {
       'id': id,
       'employeeId': employeeId,
       'attendanceDate': attendanceDate.toIso8601String(),
-      'type': type.name,
-      'status': status.name,
+      'type': type.index,
+      'status': status.index,
+      'workTimeId': workTimeId,
     };
   }
 

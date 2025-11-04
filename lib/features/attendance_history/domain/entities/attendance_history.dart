@@ -4,6 +4,7 @@ class AppAttendanceHistory {
   final DateTime attendanceDate;
   final AttendanceType type;
   final AttendanceStatus status;
+  final String workTimeId;
 
   AppAttendanceHistory({
     required this.id,
@@ -11,6 +12,7 @@ class AppAttendanceHistory {
     required this.attendanceDate,
     required this.type,
     required this.status,
+    required this.workTimeId,
   });
 }
 

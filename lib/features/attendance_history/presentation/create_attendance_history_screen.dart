@@ -2,33 +2,78 @@ import 'package:flutter/material.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/attendance_history.dart';
 import '../domain/usecases/create_attendance_history_usecase.dart';
+import '../../worktime/domain/entities/app_work_time.dart';
+import '../../worktime/domain/usecases/get_page_work_time_usecase.dart';
 
 class CreateAttendanceHistoryScreen extends StatefulWidget {
   const CreateAttendanceHistoryScreen({super.key});
 
   @override
-  State<CreateAttendanceHistoryScreen> createState() => _CreateAttendanceHistoryScreenState();
+  State<CreateAttendanceHistoryScreen> createState() =>
+      _CreateAttendanceHistoryScreenState();
 }
 
-class _CreateAttendanceHistoryScreenState extends State<CreateAttendanceHistoryScreen> {
+class _CreateAttendanceHistoryScreenState
+    extends State<CreateAttendanceHistoryScreen> {
   late final CreateAttendanceHistoryUseCase _createUseCase;
-  
+  late final GetPageWorkTimeUseCase _getWorkTimesUseCase;
+
   final _formKey = GlobalKey<FormState>();
 
   bool isLoading = false;
+  bool isLoadingData = false;
   String? error;
-  
+
   AttendanceType _selectedType = AttendanceType.checkIn;
   AttendanceStatus _selectedStatus = AttendanceStatus.onTime;
+  String? _selectedWorkTimeId;
+
+  List<AppWorkTime> _workTimes = [];
 
   @override
   void initState() {
     super.initState();
     _createUseCase = resolve<CreateAttendanceHistoryUseCase>();
+    _getWorkTimesUseCase = resolve<GetPageWorkTimeUseCase>();
+
+    _loadWorkTimes();
+  }
+
+  Future<void> _loadWorkTimes() async {
+    setState(() {
+      isLoadingData = true;
+    });
+
+    try {
+      final workTimes = await _getWorkTimesUseCase.execute(
+        pageIndex: 1,
+        pageSize: 100,
+        isActive: true, // Only get active work times
+      );
+
+      setState(() {
+        _workTimes = workTimes;
+      });
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+      });
+    } finally {
+      setState(() {
+        isLoadingData = false;
+      });
+    }
   }
 
   Future<void> _createAttendanceHistory() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedWorkTimeId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn ca làm việc')),
+      );
+      return;
+    }
 
     setState(() {
       isLoading = true;
@@ -39,12 +84,13 @@ class _CreateAttendanceHistoryScreenState extends State<CreateAttendanceHistoryS
       await _createUseCase.call(
         type: _selectedType,
         status: _selectedStatus,
+        workTimeId: _selectedWorkTimeId!,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chấm công thành công')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Chấm công thành công')));
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -104,6 +150,10 @@ class _CreateAttendanceHistoryScreenState extends State<CreateAttendanceHistoryS
   }
 
   Widget _buildBody() {
+    if (isLoadingData) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -126,12 +176,37 @@ class _CreateAttendanceHistoryScreenState extends State<CreateAttendanceHistoryS
                   style: TextStyle(color: Colors.red.shade700),
                 ),
               ),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedWorkTimeId,
+              decoration: InputDecoration(
+                labelText: 'Ca làm việc *',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.access_time),
+              ),
+              items: _workTimes.map((workTime) {
+                return DropdownMenuItem(
+                  value: workTime.id,
+                  child: Text(workTime.name),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedWorkTimeId = value;
+                });
+              },
+              validator: (value) {
+                if (value == null) {
+                  return 'Vui lòng chọn ca làm việc';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
             const Text(
               'Loại chấm công',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             ...AttendanceType.values.map((type) {
@@ -154,18 +229,15 @@ class _CreateAttendanceHistoryScreenState extends State<CreateAttendanceHistoryS
                     ? Colors.blue
                     : Colors.purple,
               );
-            }).toList(),
+            }),
             const SizedBox(height: 24),
             const Text(
               'Trạng thái',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<AttendanceStatus>(
-              value: _selectedStatus,
+              initialValue: _selectedStatus,
               decoration: InputDecoration(
                 labelText: 'Trạng thái *',
                 border: OutlineInputBorder(
@@ -183,34 +255,6 @@ class _CreateAttendanceHistoryScreenState extends State<CreateAttendanceHistoryS
                   _selectedStatus = value!;
                 });
               },
-            ),
-            const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.info_outline, color: Colors.blue),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Thông tin chấm công',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Thời gian và nhân viên sẽ được tự động ghi nhận từ hệ thống.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -237,4 +281,3 @@ class _CreateAttendanceHistoryScreenState extends State<CreateAttendanceHistoryS
     );
   }
 }
-

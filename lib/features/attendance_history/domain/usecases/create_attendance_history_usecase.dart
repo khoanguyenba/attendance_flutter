@@ -9,7 +9,12 @@ class CreateAttendanceHistoryUseCase {
   Future<AppAttendanceHistory> call({
     required AttendanceType type,
     required AttendanceStatus status,
+    required String workTimeId,
   }) async {
-    return await repository.createAttendanceHistory(type: type, status: status);
+    return await repository.createAttendanceHistory(
+      type: type,
+      status: status,
+      workTimeId: workTimeId,
+    );
   }
 }

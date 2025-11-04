@@ -15,8 +15,13 @@ class AppAttendanceHistoryRepositoryImpl
   Future<AppAttendanceHistory> createAttendanceHistory({
     required AttendanceType type,
     required AttendanceStatus status,
+    required String workTimeId,
   }) async {
-    final command = CreateAttendanceHistoryCommand(type: type, status: status);
+    final command = CreateAttendanceHistoryCommand(
+      type: type,
+      status: status,
+      workTimeId: workTimeId,
+    );
     final dto = await remoteDataSource.createAttendanceHistory(command);
     return AppAttendanceHistory(
       id: dto.id,
@@ -24,6 +29,7 @@ class AppAttendanceHistoryRepositoryImpl
       attendanceDate: dto.attendanceDate,
       type: dto.type,
       status: dto.status,
+      workTimeId: dto.workTimeId,
     );
   }
 
@@ -46,6 +52,7 @@ class AppAttendanceHistoryRepositoryImpl
       attendanceDate: dto.attendanceDate,
       type: dto.type,
       status: dto.status,
+      workTimeId: dto.workTimeId,
     );
   }
 
@@ -73,6 +80,7 @@ class AppAttendanceHistoryRepositoryImpl
             attendanceDate: dto.attendanceDate,
             type: dto.type,
             status: dto.status,
+            workTimeId: dto.workTimeId,
           ),
         )
         .toList();
