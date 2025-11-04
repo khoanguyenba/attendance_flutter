@@ -6,6 +6,7 @@ class AppUserDto extends AppUser {
     required super.userName,
     required super.email,
     required super.role,
+    required super.employeeId,
   });
 
   factory AppUserDto.fromJson(Map<String, dynamic> json) {
@@ -14,14 +15,27 @@ class AppUserDto extends AppUser {
       userName: json['userName'] as String,
       email: json['email'] as String,
       role: json['role'] as String,
+      employeeId: json['employeeId'] as String,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'userName': userName, 'email': email, 'role': role};
+    return {
+      'id': id,
+      'userName': userName,
+      'email': email,
+      'role': role,
+      'employeeId': employeeId,
+    };
   }
 
   AppUser toEntity() {
-    return AppUser(id: id, userName: userName, email: email, role: role);
+    return AppUser(
+      id: id,
+      userName: userName,
+      email: email,
+      role: role,
+      employeeId: employeeId,
+    );
   }
 }

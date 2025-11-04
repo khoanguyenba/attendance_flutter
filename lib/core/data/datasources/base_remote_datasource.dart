@@ -4,10 +4,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class BaseRemoteDataSource {
   final Dio dio;
   final FlutterSecureStorage secureStorage;
-  final String baseUrl = 'http://localhost:5190';
+  static const String defaultBaseUrl = 'http://localhost:5190';
 
   BaseRemoteDataSource(this.dio, this.secureStorage) {
+    _initializeDio();
+  }
+
+  Future<void> _initializeDio() async {
+    final baseUrl = await getBaseUrl();
     dio.options.baseUrl = baseUrl;
+    dio.options.validateStatus = (status) => status != null && status < 500;
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -37,5 +43,15 @@ class BaseRemoteDataSource {
 
   Future<void> clearToken() async {
     await secureStorage.delete(key: 'auth_token');
+  }
+
+  Future<String> getBaseUrl() async {
+    final savedUrl = await secureStorage.read(key: 'base_url');
+    return savedUrl ?? defaultBaseUrl;
+  }
+
+  Future<void> saveBaseUrl(String url) async {
+    await secureStorage.write(key: 'base_url', value: url);
+    dio.options.baseUrl = url;
   }
 }
