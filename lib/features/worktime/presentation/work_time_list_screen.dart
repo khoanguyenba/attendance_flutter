@@ -97,73 +97,19 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
     }
   }
 
-  void _showFilterDialog() {
-    showDialog(
+  void _showFilterDialog() async {
+    final result = await showDialog<bool?>(
       context: context,
-      builder: (context) {
-        bool? tempFilter = _filterIsActive;
-        return AlertDialog(
-          title: const Text('Lọc ca làm việc'),
-          content: StatefulBuilder(
-            builder: (context, setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  RadioListTile<bool?>(
-                    title: const Text('Tất cả'),
-                    value: null,
-                    groupValue: tempFilter,
-                    onChanged: (value) {
-                      setState(() {
-                        tempFilter = value;
-                      });
-                    },
-                  ),
-                  RadioListTile<bool?>(
-                    title: const Text('Đang hoạt động'),
-                    value: true,
-                    groupValue: tempFilter,
-                    onChanged: (value) {
-                      setState(() {
-                        tempFilter = value;
-                      });
-                    },
-                  ),
-                  RadioListTile<bool?>(
-                    title: const Text('Không hoạt động'),
-                    value: false,
-                    groupValue: tempFilter,
-                    onChanged: (value) {
-                      setState(() {
-                        tempFilter = value;
-                      });
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Hủy'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _filterIsActive = tempFilter;
-                });
-                Navigator.pop(context);
-                _loadWorkTimes();
-              },
-              child: const Text('Áp dụng'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => FilterDialog(currentFilter: _filterIsActive),
     );
+    
+    // Nếu user nhấn "Áp dụng", result sẽ chứa giá trị filter mới
+    if (result != null) {
+      setState(() {
+        _filterIsActive = result;
+      });
+      _loadWorkTimes();
+    }
   }
 
   @override
@@ -332,6 +278,88 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+// Widget riêng cho Filter Dialog - Dễ hiểu hơn StatefulBuilder
+class FilterDialog extends StatefulWidget {
+  final bool? currentFilter;
+
+  const FilterDialog({
+    super.key,
+    required this.currentFilter,
+  });
+
+  @override
+  State<FilterDialog> createState() => _FilterDialogState();
+}
+
+class _FilterDialogState extends State<FilterDialog> {
+  bool? selectedFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    // Khởi tạo giá trị từ filter hiện tại
+    selectedFilter = widget.currentFilter;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Lọc ca làm việc'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RadioListTile<bool?>(
+            title: const Text('Tất cả'),
+            value: null,
+            groupValue: selectedFilter,
+            onChanged: (value) {
+              setState(() {
+                selectedFilter = value;
+              });
+            },
+          ),
+          RadioListTile<bool?>(
+            title: const Text('Đang hoạt động'),
+            value: true,
+            groupValue: selectedFilter,
+            onChanged: (value) {
+              setState(() {
+                selectedFilter = value;
+              });
+            },
+          ),
+          RadioListTile<bool?>(
+            title: const Text('Không hoạt động'),
+            value: false,
+            groupValue: selectedFilter,
+            onChanged: (value) {
+              setState(() {
+                selectedFilter = value;
+              });
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            // Đóng dialog mà không trả về gì (user hủy)
+            Navigator.pop(context);
+          },
+          child: const Text('Hủy'),
+        ),
+        TextButton(
+          onPressed: () {
+            // Trả về giá trị filter đã chọn
+            Navigator.pop(context, selectedFilter);
+          },
+          child: const Text('Áp dụng'),
+        ),
+      ],
     );
   }
 }
