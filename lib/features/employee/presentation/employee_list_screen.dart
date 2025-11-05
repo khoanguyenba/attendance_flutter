@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/di/injection.dart';
+import '../../user/presentation/create_user_screen.dart';
 import '../domain/entities/app_employee.dart';
 import '../domain/usecases/get_page_employee_usecase.dart';
 import 'edit_employee_screen.dart';
@@ -13,7 +14,7 @@ class EmployeeListScreen extends StatefulWidget {
 
 class _EmployeeListScreenState extends State<EmployeeListScreen> {
   late final GetPageEmployeeUseCase _getPageUseCase;
-  
+
   List<AppEmployee> employees = [];
   bool isLoading = false;
   String? error;
@@ -22,7 +23,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   void initState() {
     super.initState();
     _getPageUseCase = resolve<GetPageEmployeeUseCase>();
-    
+
     _loadEmployees();
   }
 
@@ -33,10 +34,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     });
 
     try {
-      final result = await _getPageUseCase.call(
-        pageIndex: 1,
-        pageSize: 100,
-      );
+      final result = await _getPageUseCase.call(pageIndex: 1, pageSize: 100);
       setState(() {
         employees = result;
       });
@@ -57,8 +55,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         return 'Nam';
       case Gender.female:
         return 'Nữ';
-      case Gender.other:
-        return 'Khác';
     }
   }
 
@@ -68,7 +64,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         return 'Đang làm việc';
       case EmployeeStatus.inactive:
         return 'Tạm nghỉ';
-      case EmployeeStatus.terminated:
+      case EmployeeStatus.suspended:
         return 'Đã nghỉ việc';
     }
   }
@@ -79,7 +75,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         return Colors.green;
       case EmployeeStatus.inactive:
         return Colors.orange;
-      case EmployeeStatus.terminated:
+      case EmployeeStatus.suspended:
         return Colors.red;
     }
   }
@@ -96,7 +92,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EditEmployeeScreen(), // null employeeId = create mode
+                  builder: (context) =>
+                      const EditEmployeeScreen(), // null employeeId = create mode
                 ),
               );
               if (result == true) {
@@ -132,9 +129,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     }
 
     if (employees.isEmpty) {
-      return const Center(
-        child: Text('Không có nhân viên nào'),
-      );
+      return const Center(child: Text('Không có nhân viên nào'));
     }
 
     return RefreshIndicator(
@@ -162,7 +157,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(employee.status).withOpacity(0.2),
+                          color: _getStatusColor(
+                            employee.status,
+                          ).withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -175,23 +172,59 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       ),
                     ],
                   ),
-                ],
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditEmployeeScreen(
-                        employeeId: employee.id,
+                  if (employee.userId == null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Chưa có tài khoản',
+                        style: TextStyle(
+                          color: Colors.orange[700],
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
-                  );
-                  if (result == true) {
-                    _loadEmployees();
-                  }
-                },
+                ],
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (employee.userId == null)
+                    IconButton(
+                      icon: const Icon(Icons.person_add),
+                      color: Colors.blue,
+                      tooltip: 'Tạo tài khoản',
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CreateUserScreen(
+                              employeeId: employee.id,
+                              employeeName: employee.fullName,
+                            ),
+                          ),
+                        );
+                        if (result == true) {
+                          _loadEmployees();
+                        }
+                      },
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EditEmployeeScreen(employeeId: employee.id),
+                        ),
+                      );
+                      if (result == true) {
+                        _loadEmployees();
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
           );
@@ -200,4 +233,3 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 }
-

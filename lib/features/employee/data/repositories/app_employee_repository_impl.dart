@@ -111,6 +111,7 @@ class AppEmployeeRepositoryImpl implements AppEmployeeRepository {
             departmentId: dto.departmentId,
             status: dto.status,
             managerId: dto.managerId,
+            userId: dto.userId,
           ),
         )
         .toList();
