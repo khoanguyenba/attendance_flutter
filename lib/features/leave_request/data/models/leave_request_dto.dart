@@ -8,7 +8,7 @@ class LeaveRequestDto extends AppLeaveRequest {
     required super.endDate,
     required super.reason,
     required super.status,
-    required super.approvedById,
+    super.approvedById,
   });
 
   factory LeaveRequestDto.fromJson(Map<String, dynamic> json) {
@@ -19,7 +19,7 @@ class LeaveRequestDto extends AppLeaveRequest {
       endDate: DateTime.parse(json['endDate'] as String),
       reason: json['reason'] as String,
       status: _statusFromDynamic(json['status']),
-      approvedById: json['approvedById'] as String,
+      approvedById: json['approvedById'] as String?,
     );
   }
 
