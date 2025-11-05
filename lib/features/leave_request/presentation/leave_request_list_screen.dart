@@ -4,8 +4,11 @@ import '../../../core/di/injection.dart';
 import '../domain/entities/leave_request.dart';
 import '../domain/usecases/get_page_leave_request_usecase.dart';
 import '../domain/usecases/delete_leave_request_usecase.dart';
+import '../domain/usecases/approve_leave_request_usecase.dart';
+import '../domain/usecases/reject_leave_request_usecase.dart';
 import '../../employee/domain/entities/app_employee.dart';
 import '../../employee/domain/usecases/get_page_employee_usecase.dart';
+import '../../user/domain/usecases/get_current_user_usecase.dart';
 import 'create_leave_request_screen.dart';
 
 class LeaveRequestListScreen extends StatefulWidget {
@@ -18,10 +21,14 @@ class LeaveRequestListScreen extends StatefulWidget {
 class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
   late final GetPageLeaveRequestUseCase _getPageUseCase;
   late final DeleteLeaveRequestUseCase _deleteUseCase;
+  late final ApproveLeaveRequestUseCase _approveUseCase;
+  late final RejectLeaveRequestUseCase _rejectUseCase;
   late final GetPageEmployeeUseCase _getEmployeesUseCase;
-  
+  late final GetCurrentUserUseCase _getCurrentUserUseCase;
+
   List<AppLeaveRequest> leaveRequests = [];
   Map<String, AppEmployee> employeesMap = {};
+  String? currentUserEmployeeId;
   bool isLoading = false;
   String? error;
 
@@ -35,8 +42,11 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     super.initState();
     _getPageUseCase = resolve<GetPageLeaveRequestUseCase>();
     _deleteUseCase = resolve<DeleteLeaveRequestUseCase>();
+    _approveUseCase = resolve<ApproveLeaveRequestUseCase>();
+    _rejectUseCase = resolve<RejectLeaveRequestUseCase>();
     _getEmployeesUseCase = resolve<GetPageEmployeeUseCase>();
-    
+    _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
+
     _loadInitialData();
   }
 
@@ -47,16 +57,22 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     });
 
     try {
+      // Load current user
+      final currentUser = await _getCurrentUserUseCase.call();
+      if (currentUser != null) {
+        currentUserEmployeeId = currentUser.employeeId;
+      }
+
       // Load employees for mapping
       final employees = await _getEmployeesUseCase.call(
         pageIndex: 1,
         pageSize: 1000,
       );
-      
+
       setState(() {
         employeesMap = {for (var e in employees) e.id: e};
       });
-      
+
       await _loadLeaveRequests();
     } catch (e) {
       setState(() {
@@ -124,8 +140,114 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
         }
       } catch (e) {
         if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        }
+      }
+    }
+  }
+
+  Future<void> _approveLeaveRequest(AppLeaveRequest leaveRequest) async {
+    if (currentUserEmployeeId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể xác định thông tin người duyệt'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận phê duyệt'),
+        content: const Text(
+          'Bạn có chắc chắn muốn phê duyệt đơn nghỉ phép này?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+            child: const Text('Phê duyệt'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _approveUseCase.call(leaveRequest.id, currentUserEmployeeId!);
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi: $e')),
+            const SnackBar(
+              content: Text('Phê duyệt đơn nghỉ phép thành công'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadLeaveRequests();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _rejectLeaveRequest(AppLeaveRequest leaveRequest) async {
+    if (currentUserEmployeeId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể xác định thông tin người duyệt'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận từ chối'),
+        content: const Text('Bạn có chắc chắn muốn từ chối đơn nghỉ phép này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Từ chối'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _rejectUseCase.call(leaveRequest.id, currentUserEmployeeId!);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã từ chối đơn nghỉ phép'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          _loadLeaveRequests();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
           );
         }
       }
@@ -222,7 +344,9 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
         children: [
           if (_selectedEmployeeId != null)
             Chip(
-              label: Text('NV: ${employeesMap[_selectedEmployeeId]?.fullName ?? "Unknown"}'),
+              label: Text(
+                'NV: ${employeesMap[_selectedEmployeeId]?.fullName ?? "Unknown"}',
+              ),
               onDeleted: () {
                 setState(() {
                   _selectedEmployeeId = null;
@@ -259,22 +383,19 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
-              value: _selectedEmployeeId,
+              initialValue: _selectedEmployeeId,
               decoration: const InputDecoration(
                 labelText: 'Nhân viên',
                 border: OutlineInputBorder(),
               ),
               items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('Tất cả'),
-                ),
+                const DropdownMenuItem(value: null, child: Text('Tất cả')),
                 ...employeesMap.values.map((employee) {
                   return DropdownMenuItem(
                     value: employee.id,
                     child: Text(employee.fullName),
                   );
-                }).toList(),
+                }),
               ],
               onChanged: (value) {
                 setState(() {
@@ -284,22 +405,19 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<LeaveStatus>(
-              value: _selectedStatus,
+              initialValue: _selectedStatus,
               decoration: const InputDecoration(
                 labelText: 'Trạng thái',
                 border: OutlineInputBorder(),
               ),
               items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('Tất cả'),
-                ),
+                const DropdownMenuItem(value: null, child: Text('Tất cả')),
                 ...LeaveStatus.values.map((status) {
                   return DropdownMenuItem(
                     value: status,
                     child: Text(_getStatusText(status)),
                   );
-                }).toList(),
+                }),
               ],
               onChanged: (value) {
                 setState(() {
@@ -351,9 +469,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
 
     if (leaveRequests.isEmpty) {
-      return const Center(
-        child: Text('Không có đơn nghỉ phép nào'),
-      );
+      return const Center(child: Text('Không có đơn nghỉ phép nào'));
     }
 
     return RefreshIndicator(
@@ -364,8 +480,11 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
           final leaveRequest = leaveRequests[index];
           final employee = employeesMap[leaveRequest.employeeId];
           final approvedBy = employeesMap[leaveRequest.approvedById];
-          final days = _calculateDays(leaveRequest.startDate, leaveRequest.endDate);
-          
+          final days = _calculateDays(
+            leaveRequest.startDate,
+            leaveRequest.endDate,
+          );
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: ExpansionTile(
@@ -385,7 +504,11 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
                   ),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '$days ngày',
@@ -398,7 +521,9 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(leaveRequest.status).withOpacity(0.2),
+                          color: _getStatusColor(
+                            leaveRequest.status,
+                          ).withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -430,12 +555,52 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
                       const SizedBox(height: 4),
                       Text(leaveRequest.reason),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Người duyệt:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(approvedBy?.fullName ?? 'Unknown'),
+                      if (approvedBy != null) ...[
+                        Text(
+                          leaveRequest.status == LeaveStatus.rejected
+                              ? 'Người từ chối:'
+                              : 'Người phê duyệt:',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(approvedBy.fullName),
+                        const SizedBox(height: 12),
+                      ],
+                      if (leaveRequest.status == LeaveStatus.pending) ...[
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _approveLeaveRequest(leaveRequest),
+                                icon: const Icon(Icons.check_circle),
+                                label: const Text('Phê duyệt'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _rejectLeaveRequest(leaveRequest),
+                                icon: const Icon(Icons.cancel),
+                                label: const Text('Từ chối'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -447,4 +612,3 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     );
   }
 }
-

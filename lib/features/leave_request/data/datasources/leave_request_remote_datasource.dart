@@ -1,9 +1,11 @@
 import 'package:attendance_system/core/data/datasources/base_remote_datasource.dart';
 import 'package:attendance_system/core/data/models/common.dart';
+import 'package:attendance_system/features/leave_request/data/models/approve_leave_request_command.dart';
 import 'package:attendance_system/features/leave_request/data/models/leave_request_dto.dart';
 import 'package:attendance_system/features/leave_request/data/models/create_leave_request_command.dart';
 import 'package:attendance_system/features/leave_request/data/models/delete_leave_request_command.dart';
 import 'package:attendance_system/features/leave_request/data/models/get_page_leave_request_query.dart';
+import 'package:attendance_system/features/leave_request/data/models/reject_leave_request_command.dart';
 
 abstract class LeaveRequestRemoteDataSource {
   Future<LeaveRequestDto> createLeaveRequest(CreateLeaveRequestCommand command);
@@ -13,6 +15,8 @@ abstract class LeaveRequestRemoteDataSource {
   Future<List<LeaveRequestDto>> getPageLeaveRequest(
     GetPageLeaveRequestQuery query,
   );
+  Future<void> approveLeaveRequest(ApproveLeaveRequestCommand command);
+  Future<void> rejectLeaveRequest(RejectLeaveRequestCommand command);
 }
 
 class LeaveRequestRemoteDataSourceImpl extends BaseRemoteDataSource
@@ -73,7 +77,8 @@ class LeaveRequestRemoteDataSourceImpl extends BaseRemoteDataSource
             .toList();
       }
       if (resp is Map<String, dynamic>) {
-        dynamic items = resp['items'] ?? resp['data'] ?? resp['results'] ?? resp['rows'];
+        dynamic items =
+            resp['items'] ?? resp['data'] ?? resp['results'] ?? resp['rows'];
         if (items == null && resp.containsKey('data') && resp['data'] is Map) {
           final nested = resp['data'] as Map<String, dynamic>;
           items = nested['items'] ?? nested['data'];
@@ -90,5 +95,31 @@ class LeaveRequestRemoteDataSourceImpl extends BaseRemoteDataSource
     throw ErrorDataException(
       message: response.data['message'] ?? 'Get leave requests failed',
     );
+  }
+
+  @override
+  Future<void> approveLeaveRequest(ApproveLeaveRequestCommand command) async {
+    final response = await dio.post(
+      '/api/leave-requests/approve',
+      data: command.toJson(),
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw ErrorDataException(
+        message: response.data['message'] ?? 'Approve leave request failed',
+      );
+    }
+  }
+
+  @override
+  Future<void> rejectLeaveRequest(RejectLeaveRequestCommand command) async {
+    final response = await dio.post(
+      '/api/leave-requests/reject',
+      data: command.toJson(),
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw ErrorDataException(
+        message: response.data['message'] ?? 'Reject leave request failed',
+      );
+    }
   }
 }

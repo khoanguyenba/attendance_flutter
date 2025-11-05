@@ -16,7 +16,7 @@ class GetPageLeaveRequestQuery {
   Map<String, dynamic> toQueryParams() {
     final m = <String, dynamic>{'pageIndex': pageIndex, 'pageSize': pageSize};
     if (employeeId != null) m['employeeId'] = employeeId;
-    if (status != null) m['status'] = status!.name;
+    if (status != null) m['status'] = status!.index;
     return m;
   }
 }

@@ -7,6 +7,7 @@ class AppEmployee {
   final String departmentId;
   final EmployeeStatus status;
   final String? managerId;
+  final String? userId;
 
   AppEmployee({
     required this.id,
@@ -17,9 +18,10 @@ class AppEmployee {
     required this.departmentId,
     required this.status,
     this.managerId,
+    this.userId,
   });
 }
 
-enum Gender { male, female, other }
+enum Gender { male, female }
 
-enum EmployeeStatus { active, inactive, terminated }
+enum EmployeeStatus { active, inactive, suspended }

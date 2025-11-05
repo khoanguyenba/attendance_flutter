@@ -4,31 +4,37 @@ import '../../../core/di/injection.dart';
 import '../domain/usecases/create_leave_request_usecase.dart';
 import '../../employee/domain/entities/app_employee.dart';
 import '../../employee/domain/usecases/get_page_employee_usecase.dart';
+import '../../user/domain/usecases/get_current_user_usecase.dart';
+import '../../user/domain/entities/app_user.dart';
 
 class CreateLeaveRequestScreen extends StatefulWidget {
   const CreateLeaveRequestScreen({super.key});
 
   @override
-  State<CreateLeaveRequestScreen> createState() => _CreateLeaveRequestScreenState();
+  State<CreateLeaveRequestScreen> createState() =>
+      _CreateLeaveRequestScreenState();
 }
 
 class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
   late final CreateLeaveRequestUseCase _createUseCase;
   late final GetPageEmployeeUseCase _getEmployeesUseCase;
-  
+  late final GetCurrentUserUseCase _getCurrentUserUseCase;
+
   final _formKey = GlobalKey<FormState>();
   final _reasonController = TextEditingController();
-  
+
   List<AppEmployee> _employees = [];
   String? _selectedEmployeeId;
-  String? _selectedApprovedById;
   DateTime? _startDate;
   DateTime? _endDate;
+
+  AppUser? _currentUser;
+  bool _canSelectEmployee = false;
 
   bool isLoading = false;
   bool isLoadingData = false;
   String? error;
-  
+
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
   @override
@@ -36,24 +42,37 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
     super.initState();
     _createUseCase = resolve<CreateLeaveRequestUseCase>();
     _getEmployeesUseCase = resolve<GetPageEmployeeUseCase>();
-    
-    _loadEmployees();
+    _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
+
+    _loadInitialData();
   }
-  
-  Future<void> _loadEmployees() async {
+
+  Future<void> _loadInitialData() async {
     setState(() {
       isLoadingData = true;
     });
 
     try {
-      final employees = await _getEmployeesUseCase.call(
-        pageIndex: 1,
-        pageSize: 1000,
-      );
-      
-      setState(() {
-        _employees = employees;
-      });
+      // Load current user first
+      final currentUser = await _getCurrentUserUseCase.call();
+
+      if (currentUser != null) {
+        _currentUser = currentUser;
+
+        // Check if user is admin or manager
+        final role = currentUser.role.toLowerCase();
+        _canSelectEmployee = role == 'admin' || role == 'manager';
+
+        // If not admin/manager, set employeeId to current user's employeeId
+        if (!_canSelectEmployee) {
+          _selectedEmployeeId = currentUser.employeeId;
+        }
+      }
+
+      // Load employees only if user can select
+      if (_canSelectEmployee) {
+        await _loadEmployees();
+      }
     } catch (e) {
       setState(() {
         error = e.toString();
@@ -61,6 +80,23 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
     } finally {
       setState(() {
         isLoadingData = false;
+      });
+    }
+  }
+
+  Future<void> _loadEmployees() async {
+    try {
+      final employees = await _getEmployeesUseCase.call(
+        pageIndex: 1,
+        pageSize: 1000,
+      );
+
+      setState(() {
+        _employees = employees;
+      });
+    } catch (e) {
+      setState(() {
+        error = e.toString();
       });
     }
   }
@@ -78,7 +114,7 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    
+
     if (picked != null) {
       setState(() {
         _startDate = picked;
@@ -97,7 +133,7 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
       firstDate: _startDate ?? DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    
+
     if (picked != null) {
       setState(() {
         _endDate = picked;
@@ -114,31 +150,24 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
 
   Future<void> _createLeaveRequest() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     if (_selectedEmployeeId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn nhân viên')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn nhân viên')));
       return;
     }
-    
+
     if (_startDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng chọn ngày bắt đầu')),
       );
       return;
     }
-    
+
     if (_endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng chọn ngày kết thúc')),
-      );
-      return;
-    }
-    
-    if (_selectedApprovedById == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn người duyệt')),
       );
       return;
     }
@@ -154,7 +183,6 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
         startDate: _startDate!,
         endDate: _endDate!,
         reason: _reasonController.text,
-        approvedById: _selectedApprovedById!,
       );
 
       if (mounted) {
@@ -217,34 +245,70 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
                   style: TextStyle(color: Colors.red.shade700),
                 ),
               ),
-            DropdownButtonFormField<String>(
-              value: _selectedEmployeeId,
-              decoration: InputDecoration(
-                labelText: 'Nhân viên *',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+            if (_canSelectEmployee)
+              DropdownButtonFormField<String>(
+                initialValue: _selectedEmployeeId,
+                decoration: InputDecoration(
+                  labelText: 'Nhân viên *',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  prefixIcon: const Icon(Icons.person),
                 ),
-                prefixIcon: const Icon(Icons.person),
+                items: _employees.map((employee) {
+                  return DropdownMenuItem(
+                    value: employee.id,
+                    child: Text(employee.fullName),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedEmployeeId = value;
+                  });
+                },
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.person, color: Colors.blue.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Người xin nghỉ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _currentUser?.userName ?? 'Unknown',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              items: _employees.map((employee) {
-                return DropdownMenuItem(
-                  value: employee.id,
-                  child: Text(employee.fullName),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedEmployeeId = value;
-                });
-              },
-            ),
             const SizedBox(height: 16),
             const Text(
               'Thời gian nghỉ phép',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -258,7 +322,10 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        prefixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
+                        prefixIcon: const Icon(
+                          Icons.calendar_today,
+                          color: Colors.blue,
+                        ),
                       ),
                       child: Text(
                         _startDate != null
@@ -266,7 +333,9 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
                             : 'Chọn ngày',
                         style: TextStyle(
                           fontSize: 16,
-                          color: _startDate == null ? Colors.grey : Colors.black,
+                          color: _startDate == null
+                              ? Colors.grey
+                              : Colors.black,
                         ),
                       ),
                     ),
@@ -282,7 +351,10 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        prefixIcon: const Icon(Icons.calendar_today, color: Colors.orange),
+                        prefixIcon: const Icon(
+                          Icons.calendar_today,
+                          color: Colors.orange,
+                        ),
                       ),
                       child: Text(
                         _endDate != null
@@ -310,7 +382,11 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.event_available, color: Colors.blue.shade700, size: 20),
+                    Icon(
+                      Icons.event_available,
+                      color: Colors.blue.shade700,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Tổng số ngày nghỉ: ${_calculateDays()} ngày',
@@ -341,30 +417,6 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
                 ),
                 alignLabelWithHint: true,
               ),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedApprovedById,
-              decoration: InputDecoration(
-                labelText: 'Người duyệt *',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                prefixIcon: const Icon(Icons.approval),
-              ),
-              items: _employees
-                  .where((e) => e.id != _selectedEmployeeId) // Exclude selected employee
-                  .map((employee) {
-                return DropdownMenuItem(
-                  value: employee.id,
-                  child: Text(employee.fullName),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedApprovedById = value;
-                });
-              },
             ),
             const SizedBox(height: 16),
             Container(
@@ -402,4 +454,3 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
     );
   }
 }
-

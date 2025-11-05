@@ -10,6 +10,7 @@ class EmployeeDto extends AppEmployee {
     required super.departmentId,
     required super.status,
     super.managerId,
+    super.userId,
   });
 
   factory EmployeeDto.fromJson(Map<String, dynamic> json) {
@@ -21,6 +22,7 @@ class EmployeeDto extends AppEmployee {
     final rawDepartmentId = json['departmentId'];
     final rawStatus = json['status'];
     final rawManagerId = json['managerId'];
+    final rawUserId = json['userId'];
 
     return EmployeeDto(
       id: rawId == null ? '' : rawId.toString(),
@@ -30,7 +32,8 @@ class EmployeeDto extends AppEmployee {
       gender: _genderFromDynamic(rawGender),
       departmentId: rawDepartmentId == null ? '' : rawDepartmentId.toString(),
       status: _statusFromDynamic(rawStatus),
-      managerId: rawManagerId == null ? null : rawManagerId.toString(),
+      managerId: rawManagerId?.toString(),
+      userId: rawUserId?.toString(),
     );
   }
 
@@ -40,15 +43,17 @@ class EmployeeDto extends AppEmployee {
       'code': code,
       'fullName': fullName,
       'email': email,
-      'gender': gender.name,
+      'gender': gender.index,
       'departmentId': departmentId,
-      'status': status.name,
+      'status': status.index,
       'managerId': managerId,
     };
   }
 
   static Gender _genderFromDynamic(dynamic value) {
-    if (value == null) return Gender.other;
+    if (value == null) {
+      throw Exception('Gender is required');
+    }
     if (value is int) {
       switch (value) {
         case 0:
@@ -56,7 +61,7 @@ class EmployeeDto extends AppEmployee {
         case 1:
           return Gender.female;
         default:
-          return Gender.other;
+          throw Exception('Gender is invalid');
       }
     }
     if (value is String) {
@@ -69,10 +74,10 @@ class EmployeeDto extends AppEmployee {
         case 'f':
           return Gender.female;
         default:
-          return Gender.other;
+          throw Exception('Gender is invalid');
       }
     }
-    return Gender.other;
+    throw Exception('Gender is invalid');
   }
 
   static EmployeeStatus _statusFromDynamic(dynamic value) {
@@ -82,7 +87,7 @@ class EmployeeDto extends AppEmployee {
         case 1:
           return EmployeeStatus.inactive;
         case 2:
-          return EmployeeStatus.terminated;
+          return EmployeeStatus.suspended;
         default:
           return EmployeeStatus.active;
       }
@@ -95,7 +100,7 @@ class EmployeeDto extends AppEmployee {
         case 'inactive':
           return EmployeeStatus.inactive;
         case 'terminated':
-          return EmployeeStatus.terminated;
+          return EmployeeStatus.suspended;
         default:
           return EmployeeStatus.active;
       }

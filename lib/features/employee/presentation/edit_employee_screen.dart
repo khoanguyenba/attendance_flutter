@@ -10,11 +10,8 @@ import '../../department/domain/usecases/get_page_department_usecase.dart';
 
 class EditEmployeeScreen extends StatefulWidget {
   final String? employeeId; // null = create mode, not null = edit mode
-  
-  const EditEmployeeScreen({
-    super.key,
-    this.employeeId,
-  });
+
+  const EditEmployeeScreen({super.key, this.employeeId});
 
   @override
   State<EditEmployeeScreen> createState() => _EditEmployeeScreenState();
@@ -26,7 +23,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   late final GetEmployeeByIdUseCase _getByIdUseCase;
   late final GetPageEmployeeUseCase _getPageEmployeeUseCase;
   late final GetPageDepartmentUseCase _getDepartmentsUseCase;
-  
+
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _fullNameController = TextEditingController();
@@ -34,15 +31,15 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
 
   bool isLoading = false;
   String? error;
-  
+
   Gender? _selectedGender;
   EmployeeStatus _selectedStatus = EmployeeStatus.active;
   String? _selectedDepartmentId;
   String? _selectedManagerId;
-  
+
   List<AppDepartment> _departments = [];
   List<AppEmployee> _employees = [];
-  
+
   bool get isEditMode => widget.employeeId != null;
 
   @override
@@ -53,10 +50,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     _getByIdUseCase = resolve<GetEmployeeByIdUseCase>();
     _getPageEmployeeUseCase = resolve<GetPageEmployeeUseCase>();
     _getDepartmentsUseCase = resolve<GetPageDepartmentUseCase>();
-    
+
     _loadInitialData();
   }
-  
+
   Future<void> _loadInitialData() async {
     setState(() {
       isLoading = true;
@@ -69,18 +66,18 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         pageIndex: 1,
         pageSize: 100,
       );
-      
+
       // Load employees for manager selection
       final employees = await _getPageEmployeeUseCase.call(
         pageIndex: 1,
         pageSize: 100,
       );
-      
+
       setState(() {
         _departments = departments;
         _employees = employees;
       });
-      
+
       // If edit mode, load employee data
       if (isEditMode) {
         await _loadEmployee();
@@ -95,7 +92,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       });
     }
   }
-  
+
   Future<void> _loadEmployee() async {
     try {
       final employee = await _getByIdUseCase.call(widget.employeeId!);
@@ -127,18 +124,18 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
 
   Future<void> _saveEmployee() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     if (_selectedGender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn giới tính')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn giới tính')));
       return;
     }
-    
+
     if (_selectedDepartmentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn phòng ban')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn phòng ban')));
       return;
     }
 
@@ -176,9 +173,11 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isEditMode 
-                ? 'Cập nhật nhân viên thành công' 
-                : 'Tạo nhân viên thành công'),
+            content: Text(
+              isEditMode
+                  ? 'Cập nhật nhân viên thành công'
+                  : 'Tạo nhân viên thành công',
+            ),
           ),
         );
         Navigator.pop(context, true);
@@ -200,8 +199,6 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         return 'Nam';
       case Gender.female:
         return 'Nữ';
-      case Gender.other:
-        return 'Khác';
     }
   }
 
@@ -211,7 +208,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         return 'Đang làm việc';
       case EmployeeStatus.inactive:
         return 'Tạm nghỉ';
-      case EmployeeStatus.terminated:
+      case EmployeeStatus.suspended:
         return 'Đã nghỉ việc';
     }
   }
@@ -312,7 +309,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<Gender>(
-              value: _selectedGender,
+              initialValue: _selectedGender,
               decoration: InputDecoration(
                 labelText: 'Giới tính *',
                 border: OutlineInputBorder(
@@ -333,7 +330,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedDepartmentId,
+              initialValue: _selectedDepartmentId,
               decoration: InputDecoration(
                 labelText: 'Phòng ban *',
                 border: OutlineInputBorder(
@@ -354,7 +351,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<EmployeeStatus>(
-              value: _selectedStatus,
+              initialValue: _selectedStatus,
               decoration: InputDecoration(
                 labelText: 'Trạng thái *',
                 border: OutlineInputBorder(
@@ -375,7 +372,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedManagerId,
+              initialValue: _selectedManagerId,
               decoration: InputDecoration(
                 labelText: 'Quản lý (tùy chọn)',
                 border: OutlineInputBorder(
@@ -388,13 +385,16 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                   child: Text('-- Không có --'),
                 ),
                 ..._employees
-                    .where((e) => e.id != widget.employeeId) // Exclude self in edit mode
+                    .where(
+                      (e) => e.id != widget.employeeId,
+                    ) // Exclude self in edit mode
                     .map((employee) {
-                  return DropdownMenuItem(
-                    value: employee.id,
-                    child: Text(employee.fullName),
-                  );
-                }).toList(),
+                      return DropdownMenuItem(
+                        value: employee.id,
+                        child: Text(employee.fullName),
+                      );
+                    })
+                    ,
               ],
               onChanged: (value) {
                 setState(() {
@@ -407,7 +407,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: isLoading ? null : _saveEmployee,
-                child: Text(isEditMode ? 'Cập nhật nhân viên' : 'Tạo nhân viên'),
+                child: Text(
+                  isEditMode ? 'Cập nhật nhân viên' : 'Tạo nhân viên',
+                ),
               ),
             ),
           ],
@@ -416,4 +418,3 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     );
   }
 }
-

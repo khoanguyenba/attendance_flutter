@@ -26,9 +26,9 @@ class UpdateEmployeeCommand {
     'code': code,
     'fullName': fullName,
     'email': email,
-    'gender': gender.name,
+    'gender': gender.index,
     'departmentId': departmentId,
-    'status': status.name,
+    'status': status.index,
     'managerId': managerId,
   };
 }

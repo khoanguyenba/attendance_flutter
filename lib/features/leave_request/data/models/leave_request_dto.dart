@@ -18,7 +18,7 @@ class LeaveRequestDto extends AppLeaveRequest {
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       reason: json['reason'] as String,
-      status: _statusFromString(json['status'] as String?),
+      status: _statusFromDynamic(json['status']),
       approvedById: json['approvedById'] as String,
     );
   }
@@ -30,22 +30,42 @@ class LeaveRequestDto extends AppLeaveRequest {
       'startDate': startDate.toIso8601String(),
       'endDate': endDate.toIso8601String(),
       'reason': reason,
-      'status': status.name,
+      'status': status.index,
       'approvedById': approvedById,
     };
   }
 
-  static LeaveStatus _statusFromString(String? v) {
-    if (v == null) return LeaveStatus.pending;
-    switch (v.toLowerCase()) {
-      case 'pending':
-        return LeaveStatus.pending;
-      case 'approved':
-        return LeaveStatus.approved;
-      case 'rejected':
-        return LeaveStatus.rejected;
-      default:
-        return LeaveStatus.pending;
+  static LeaveStatus _statusFromDynamic(dynamic value) {
+    if (value == null) return LeaveStatus.pending;
+
+    // Handle int values
+    if (value is int) {
+      switch (value) {
+        case 0:
+          return LeaveStatus.pending;
+        case 1:
+          return LeaveStatus.approved;
+        case 2:
+          return LeaveStatus.rejected;
+        default:
+          return LeaveStatus.pending;
+      }
     }
+
+    // Handle String values
+    if (value is String) {
+      switch (value.toLowerCase()) {
+        case 'pending':
+          return LeaveStatus.pending;
+        case 'approved':
+          return LeaveStatus.approved;
+        case 'rejected':
+          return LeaveStatus.rejected;
+        default:
+          return LeaveStatus.pending;
+      }
+    }
+
+    return LeaveStatus.pending;
   }
 }

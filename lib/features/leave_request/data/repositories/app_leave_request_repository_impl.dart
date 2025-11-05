@@ -1,7 +1,9 @@
 import 'package:attendance_system/features/leave_request/data/datasources/leave_request_remote_datasource.dart';
+import 'package:attendance_system/features/leave_request/data/models/approve_leave_request_command.dart';
 import 'package:attendance_system/features/leave_request/data/models/create_leave_request_command.dart';
 import 'package:attendance_system/features/leave_request/data/models/delete_leave_request_command.dart';
 import 'package:attendance_system/features/leave_request/data/models/get_page_leave_request_query.dart';
+import 'package:attendance_system/features/leave_request/data/models/reject_leave_request_command.dart';
 import 'package:attendance_system/features/leave_request/domain/entities/leave_request.dart';
 import 'package:attendance_system/features/leave_request/domain/repositories/app_leave_request_repository.dart';
 
@@ -16,14 +18,12 @@ class AppLeaveRequestRepositoryImpl implements AppLeaveRequestRepository {
     required DateTime startDate,
     required DateTime endDate,
     required String reason,
-    required String approvedById,
   }) async {
     final command = CreateLeaveRequestCommand(
       employeeId: employeeId,
       startDate: startDate,
       endDate: endDate,
       reason: reason,
-      approvedById: approvedById,
     );
     final dto = await remoteDataSource.createLeaveRequest(command);
     return AppLeaveRequest(
@@ -86,5 +86,19 @@ class AppLeaveRequestRepositoryImpl implements AppLeaveRequestRepository {
           ),
         )
         .toList();
+  }
+
+  @override
+  Future<void> approveLeaveRequest(String id, String approverId) async {
+    await remoteDataSource.approveLeaveRequest(
+      ApproveLeaveRequestCommand(leaveRequestId: id, approvedById: approverId),
+    );
+  }
+
+  @override
+  Future<void> rejectLeaveRequest(String id, String approverId) async {
+    await remoteDataSource.rejectLeaveRequest(
+      RejectLeaveRequestCommand(leaveRequestId: id, rejectedById: approverId),
+    );
   }
 }
