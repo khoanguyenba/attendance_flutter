@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/injection.dart';
 import '../domain/usecases/create_work_time_usecase.dart';
 import '../domain/usecases/update_work_time_usecase.dart';
@@ -177,7 +178,7 @@ class _EditWorkTimeScreenState extends State<EditWorkTimeScreen> {
                 : 'Tạo ca làm việc thành công'),
           ),
         );
-        Navigator.pop(context, true);
+        context.pop(true);
       }
     } catch (e) {
       setState(() {

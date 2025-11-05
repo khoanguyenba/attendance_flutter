@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/presentation/authenticated_layout.dart';
@@ -63,10 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        context.go('/attendance');
       }
     } catch (e) {
       setState(() {

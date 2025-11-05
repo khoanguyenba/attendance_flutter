@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/injection.dart';
 import '../domain/usecases/create_user_usecase.dart';
+import '../../employee/domain/usecases/get_employee_by_id_usecase.dart';
+import '../../employee/domain/entities/app_employee.dart';
+import '../../department/domain/usecases/get_department_by_id_usecase.dart';
+import '../../department/domain/entities/app_department.dart';
 
 class CreateUserScreen extends StatefulWidget {
   final String employeeId;
-  final String employeeName;
 
   const CreateUserScreen({
     super.key,
     required this.employeeId,
-    required this.employeeName,
   });
 
   @override
@@ -23,15 +26,39 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   final _confirmPasswordController = TextEditingController();
 
   late final CreateUserUseCase _createUserUseCase;
+  late final GetEmployeeByIdUseCase _getEmployeeByIdUseCase;
+  late final GetDepartmentByIdUseCase _getDepartmentByIdUseCase;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  String? _employeeCode;
+  String? _employeeName;
+  String? _departmentName;
+
   @override
   void initState() {
     super.initState();
     _createUserUseCase = resolve<CreateUserUseCase>();
+    _getEmployeeByIdUseCase = resolve<GetEmployeeByIdUseCase>();
+    _getDepartmentByIdUseCase = resolve<GetDepartmentByIdUseCase>();
+    _loadDisplayInfo();
+  }
+
+  Future<void> _loadDisplayInfo() async {
+    try {
+      final AppEmployee? emp = await _getEmployeeByIdUseCase.call(widget.employeeId);
+      if (emp != null) {
+        _employeeCode = emp.code;
+        _employeeName = emp.fullName;
+        try {
+          final AppDepartment? dept = await _getDepartmentByIdUseCase.call(emp.departmentId);
+          _departmentName = dept?.name;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    if (mounted) setState(() {});
   }
 
   @override
@@ -65,7 +92,7 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(true); // Return true to indicate success
+        context.pop(true); // Return true to indicate success
       }
     } catch (e) {
       if (mounted) {
@@ -107,8 +134,12 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
-                      Text('Tên: ${widget.employeeName}'),
-                      Text('ID: ${widget.employeeId}'),
+                      if (_employeeCode != null)
+                        Text('Mã NV: ${_employeeCode}'),
+                      if (_employeeName != null)
+                        Text('Tên: ${_employeeName}'),
+                      if (_departmentName != null)
+                        Text('Phòng ban: ${_departmentName}'),
                     ],
                   ),
                 ),

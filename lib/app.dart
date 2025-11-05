@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'features/user/presentation/login_screen.dart';
+import 'core/routing/app_router.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Attendance System',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
       debugShowCheckedModeBanner: false,
-      home: const LoginScreen(),
+      routerConfig: appRouter,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/app_department.dart';
 import '../domain/usecases/get_page_department_usecase.dart';
@@ -102,12 +103,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EditDepartmentScreen(), // null departmentId = create mode
-                ),
-              );
+              final result = await context.push<bool>('/departments/new');
               if (result == true) {
                 _loadDepartments();
               }
@@ -183,14 +179,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
                 ],
                 onSelected: (value) async {
                   if (value == 'edit') {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditDepartmentScreen(
-                            departmentId: department.id,
-                          ),
-                      ),
-                    );
+                    final result = await context.push<bool>('/departments/edit/${department.id}');
                     if (result == true) {
                       _loadDepartments();
                     }

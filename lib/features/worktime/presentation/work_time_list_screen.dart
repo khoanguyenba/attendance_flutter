@@ -5,6 +5,7 @@ import '../domain/usecases/get_page_work_time_usecase.dart';
 import '../domain/usecases/delete_work_time_usecase.dart';
 import '../../user/domain/usecases/get_current_user_usecase.dart';
 import 'edit_work_time_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class WorkTimeListScreen extends StatefulWidget {
   const WorkTimeListScreen({super.key});
@@ -219,13 +220,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const EditWorkTimeScreen(), // null workTimeId = create mode
-                  ),
-                );
+                final result = await context.push<bool>('/worktimes/new');
                 if (result == true) {
                   _loadWorkTimes();
                 }
@@ -341,13 +336,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
                       ],
                       onSelected: (value) async {
                         if (value == 'edit') {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  EditWorkTimeScreen(workTimeId: workTime.id),
-                            ),
-                          );
+                          final result = await context.push<bool>('/worktimes/edit/${workTime.id}');
                           if (result == true) {
                             _loadWorkTimes();
                           }
