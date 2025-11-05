@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/attendance_history.dart';
@@ -241,13 +242,7 @@ class _AttendanceHistoryListScreenState
                   FloatingActionButton(
                     heroTag: 'add_btn',
                     onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const CreateAttendanceHistoryScreen(),
-                        ),
-                      );
+                      final result = await context.push<bool>('/attendance/new');
                       if (result == true) {
                         _loadAttendanceHistories();
                       }
@@ -273,12 +268,7 @@ class _AttendanceHistoryListScreenState
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CreateAttendanceHistoryScreen(),
-                ),
-              );
+              final result = await context.push<bool>('/attendance/new');
               if (result == true) {
                 _loadAttendanceHistories();
               }

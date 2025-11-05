@@ -2,15 +2,17 @@ import 'package:attendance_system/core/di/injection.dart';
 import 'package:attendance_system/features/user/domain/usecases/logout_usecase.dart';
 import 'package:attendance_system/features/user/domain/usecases/get_current_user_usecase.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../features/attendance_history/presentation/attendance_history_list_screen.dart';
 import '../../features/employee/presentation/employee_list_screen.dart';
 import '../../features/department/presentation/department_list_screen.dart';
 import '../../features/worktime/presentation/work_time_list_screen.dart';
 import '../../features/leave_request/presentation/leave_request_list_screen.dart';
-import '../../features/user/presentation/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final Widget? child;
+
+  const HomeScreen({super.key, this.child});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -52,41 +54,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<Widget> get _screens {
-    if (_isAdmin) {
-      return const [
-        AttendanceHistoryListScreen(),
-        EmployeeListScreen(),
-        DepartmentListScreen(),
-        WorkTimeListScreen(),
-        LeaveRequestListScreen(),
-      ];
-    } else {
-      return const [
-        AttendanceHistoryListScreen(),
-        WorkTimeListScreen(),
-        LeaveRequestListScreen(),
-      ];
-    }
-  }
-
-  List<String> get _titles {
-    if (_isAdmin) {
-      return const [
+  List<String> get _titles => const [
         'Lịch sử chấm công',
         'Nhân viên',
         'Phòng ban',
         'Ca làm việc',
         'Đơn nghỉ phép',
       ];
-    } else {
-      return const ['Lịch sử chấm công', 'Ca làm việc', 'Đơn nghỉ phép'];
-    }
-  }
 
-  List<BottomNavigationBarItem> get _navItems {
-    if (_isAdmin) {
-      return const [
+  List<BottomNavigationBarItem> get _navItems => const [
         BottomNavigationBarItem(
           icon: Icon(Icons.access_time),
           label: 'Chấm công',
@@ -102,20 +78,45 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Nghỉ phép',
         ),
       ];
+
+  List<String> get _adminRootPaths => const [
+        '/attendance',
+        '/employees',
+        '/departments',
+        '/worktimes',
+        '/leave-requests',
+      ];
+
+  List<String> get _userRootPaths => const [
+        '/attendance',
+        '/worktimes',
+        '/leave-requests',
+      ];
+
+  List<String> get _visiblePaths => _isAdmin ? _adminRootPaths : _userRootPaths;
+
+  int _deriveIndexFromLocation() {
+    final location = GoRouterState.of(context).uri.toString();
+    for (var i = 0; i < _visiblePaths.length; i++) {
+      if (location.startsWith(_visiblePaths[i])) return i;
+    }
+    return 0;
+  }
+
+  List<Widget> get _screensWhenNoChild {
+    if (_isAdmin) {
+      return const [
+        AttendanceHistoryListScreen(),
+        EmployeeListScreen(),
+        DepartmentListScreen(),
+        WorkTimeListScreen(),
+        LeaveRequestListScreen(),
+      ];
     } else {
       return const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.access_time),
-          label: 'Chấm công',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.history),
-          label: 'Ca làm việc',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.event_note),
-          label: 'Nghỉ phép',
-        ),
+        AttendanceHistoryListScreen(),
+        WorkTimeListScreen(),
+        LeaveRequestListScreen(),
       ];
     }
   }
@@ -144,10 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (confirmed == true) {
       await _logoutUsecase.call();
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+      context.go('/login');
     }
   }
 
@@ -159,21 +157,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
+        title: Text(_titles[_isAdmin ? (_currentIndex) : (_currentIndex == 0 ? 0 : _currentIndex == 1 ? 3 : 4)]),
         actions: [
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
-      body: _screens[_currentIndex],
+      body: widget.child ?? _screensWhenNoChild[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
+        currentIndex: _deriveIndexFromLocation(),
         onTap: (index) {
           setState(() {
             _currentIndex = index;
           });
+          context.go(_visiblePaths[index]);
         },
-        items: _navItems,
+        items: (_isAdmin
+                ? _navItems
+                : [_navItems[0], _navItems[3], _navItems[4]])
+            .toList(growable: false),
       ),
     );
   }

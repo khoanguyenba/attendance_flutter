@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/injection.dart';
 import '../../user/presentation/create_user_screen.dart';
 import '../domain/entities/app_employee.dart';
@@ -89,13 +90,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const EditEmployeeScreen(), // null employeeId = create mode
-                ),
-              );
+              final result = await context.push<bool>('/employees/new');
               if (result == true) {
                 _loadEmployees();
               }
@@ -195,14 +190,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       color: Colors.blue,
                       tooltip: 'Tạo tài khoản',
                       onPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CreateUserScreen(
-                              employeeId: employee.id,
-                              employeeName: employee.fullName,
-                            ),
-                          ),
+                        final result = await context.push<bool>(
+                          '/employees/create-user/${employee.id}',
                         );
                         if (result == true) {
                           _loadEmployees();
@@ -212,13 +201,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                   IconButton(
                     icon: const Icon(Icons.edit),
                     onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              EditEmployeeScreen(employeeId: employee.id),
-                        ),
-                      );
+                      final result = await context.push<bool>('/employees/edit/${employee.id}');
                       if (result == true) {
                         _loadEmployees();
                       }
