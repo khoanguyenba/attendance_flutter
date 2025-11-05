@@ -6,8 +6,8 @@ abstract class AppLeaveRequestRepository {
     required DateTime startDate,
     required DateTime endDate,
     required String reason,
-    required String approvedById,
   });
+
   Future<void> deleteLeaveRequest(String id);
 
   Future<AppLeaveRequest?> getLeaveRequestById(String id);
@@ -18,4 +18,7 @@ abstract class AppLeaveRequestRepository {
     String? employeeId,
     LeaveStatus? status,
   });
+
+  Future<void> approveLeaveRequest(String id, String approverId);
+  Future<void> rejectLeaveRequest(String id, String approverId);
 }

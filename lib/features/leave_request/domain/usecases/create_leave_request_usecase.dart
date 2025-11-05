@@ -11,14 +11,12 @@ class CreateLeaveRequestUseCase {
     required DateTime startDate,
     required DateTime endDate,
     required String reason,
-    required String approvedById,
   }) async {
     return await repository.createLeaveRequest(
       employeeId: employeeId,
       startDate: startDate,
       endDate: endDate,
       reason: reason,
-      approvedById: approvedById,
     );
   }
 }

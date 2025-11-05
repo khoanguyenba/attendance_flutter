@@ -25,7 +25,7 @@ class UpdateLeaveRequestCommand {
     'startDate': startDate.toIso8601String(),
     'endDate': endDate.toIso8601String(),
     'reason': reason,
-    'status': status.name,
+    'status': status.index,
     'approvedById': approvedById,
   };
 }
