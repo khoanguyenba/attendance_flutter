@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import '../data/datasources/department_remote_datasource.dart';
+import '../../../core/di/injection.dart';
+import '../domain/usecases/create_department_usecase.dart';
+import '../domain/usecases/update_department_usecase.dart';
+import '../domain/usecases/get_department_by_id_usecase.dart';
 
 class EditDepartmentScreen extends StatefulWidget {
-  final String? departmentId;
-
+  final String? departmentId; // null = create mode, not null = edit mode
+  
   const EditDepartmentScreen({
     super.key,
     this.departmentId,
@@ -14,56 +17,66 @@ class EditDepartmentScreen extends StatefulWidget {
 }
 
 class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
-  final DepartmentRemoteDataSource _dataSource = DepartmentRemoteDataSourceImpl();
+  late final CreateDepartmentUseCase _createUseCase;
+  late final UpdateDepartmentUseCase _updateUseCase;
+  late final GetDepartmentByIdUseCase _getByIdUseCase;
+  
   final _formKey = GlobalKey<FormState>();
+  final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   bool isLoading = false;
-  bool isLoadingData = true;
   String? error;
+  
+  bool get isEditMode => widget.departmentId != null;
 
   @override
   void initState() {
     super.initState();
-    if (widget.departmentId != null) {
+    _createUseCase = resolve<CreateDepartmentUseCase>();
+    _updateUseCase = resolve<UpdateDepartmentUseCase>();
+    _getByIdUseCase = resolve<GetDepartmentByIdUseCase>();
+    
+    if (isEditMode) {
       _loadDepartment();
-    } else {
-      setState(() {
-        isLoadingData = false;
-      });
     }
   }
-
+  
   Future<void> _loadDepartment() async {
-    if (widget.departmentId == null) return;
-    
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+
     try {
-      // Note: API doesn't have get detail endpoint for department, so we'll use mock data
-      // In real app, would call _dataSource.getDepartmentDetail(widget.departmentId!)
-      setState(() {
-        _nameController.text = 'Department ${widget.departmentId}';
-        _descriptionController.text = 'Description for department ${widget.departmentId}';
-        isLoadingData = false;
-      });
+      final department = await _getByIdUseCase.call(widget.departmentId!);
+      if (department != null) {
+        _codeController.text = department.code;
+        _nameController.text = department.name;
+        _descriptionController.text = department.description ?? '';
+      }
     } catch (e) {
       setState(() {
         error = e.toString();
-        isLoadingData = false;
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
       });
     }
   }
 
   @override
   void dispose() {
+    _codeController.dispose();
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
-  Future<void> _updateDepartment() async {
+  Future<void> _saveDepartment() async {
     if (!_formKey.currentState!.validate()) return;
-    if (widget.departmentId == null) return;
 
     setState(() {
       isLoading = true;
@@ -71,18 +84,34 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
     });
 
     try {
-      final data = {
-        'name': _nameController.text,
-        'description': _descriptionController.text.isNotEmpty 
-            ? _descriptionController.text 
-            : null,
-      };
-      
-      await _dataSource.updateDepartment(widget.departmentId!, data);
+      if (isEditMode) {
+        // Update existing department
+        await _updateUseCase.call(
+          id: widget.departmentId!,
+          code: _codeController.text,
+          name: _nameController.text,
+          description: _descriptionController.text.isNotEmpty 
+              ? _descriptionController.text 
+              : null,
+        );
+      } else {
+        // Create new department
+        await _createUseCase.call(
+          code: _codeController.text,
+          name: _nameController.text,
+          description: _descriptionController.text.isNotEmpty 
+              ? _descriptionController.text 
+              : null,
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cập nhật phòng ban thành công')),
+          SnackBar(
+            content: Text(isEditMode 
+                ? 'Cập nhật phòng ban thành công' 
+                : 'Tạo phòng ban thành công'),
+          ),
         );
         Navigator.pop(context, true);
       }
@@ -101,10 +130,10 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chỉnh sửa phòng ban'),
+        title: Text(isEditMode ? 'Chỉnh sửa phòng ban' : 'Tạo phòng ban mới'),
         actions: [
           TextButton(
-            onPressed: isLoading ? null : _updateDepartment,
+            onPressed: isLoading ? null : _saveDepartment,
             child: const Text('Lưu'),
           ),
         ],
@@ -114,10 +143,8 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
   }
 
   Widget _buildBody() {
-    if (isLoadingData) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+    if (isLoading && isEditMode) {
+      return const Center(child: CircularProgressIndicator());
     }
 
     return SingleChildScrollView(
@@ -142,6 +169,22 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
                   style: TextStyle(color: Colors.red.shade700),
                 ),
               ),
+            TextFormField(
+              controller: _codeController,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Vui lòng nhập mã phòng ban';
+                }
+                return null;
+              },
+              decoration: InputDecoration(
+                labelText: 'Mã phòng ban *',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
               validator: (value) {
@@ -172,14 +215,8 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: isLoading ? null : _updateDepartment,
-                child: isLoading 
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Cập nhật phòng ban'),
+                onPressed: isLoading ? null : _saveDepartment,
+                child: Text(isEditMode ? 'Cập nhật phòng ban' : 'Tạo phòng ban'),
               ),
             ),
           ],

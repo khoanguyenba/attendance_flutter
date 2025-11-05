@@ -1,97 +1,87 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/employee_model.dart';
+import 'package:attendance_system/core/data/datasources/base_remote_datasource.dart';
+import 'package:attendance_system/core/data/models/common.dart';
+import 'package:attendance_system/features/employee/data/models/employee_dto.dart';
+import 'package:attendance_system/features/employee/data/models/create_employee_command.dart';
+import 'package:attendance_system/features/employee/data/models/update_employee_command.dart';
+import 'package:attendance_system/features/employee/data/models/get_page_employee_query.dart';
 
 abstract class EmployeeRemoteDataSource {
-  Future<String> createEmployee(Map<String, dynamic> data);
-  Future<List<EmployeeModel>> getEmployees(Map<String, dynamic> params);
-  Future<EmployeeModel> getEmployeeDetail(String id);
-  Future<void> updateEmployee(String id, Map<String, dynamic> data);
-  Future<List<EmployeeBasicInfoModel>> getEmployeeBasicInfo();
+  Future<EmployeeDto> createEmployee(CreateEmployeeCommand command);
+  Future<void> updateEmployee(UpdateEmployeeCommand command);
+  Future<EmployeeDto?> getEmployeeById(String id);
+  Future<List<EmployeeDto>> getPageEmployee(GetPageEmployeeQuery query);
 }
 
-class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String _collection = 'employees';
+class EmployeeRemoteDataSourceImpl extends BaseRemoteDataSource
+    implements EmployeeRemoteDataSource {
+  EmployeeRemoteDataSourceImpl(super.dio, super.secureStorage);
 
   @override
-  Future<String> createEmployee(Map<String, dynamic> data) async {
-    try {
-      final docRef = await _firestore.collection(_collection).add({
-        ...data,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      return docRef.id;
-    } catch (e) {
-      throw Exception('Failed to create employee: $e');
+  Future<EmployeeDto> createEmployee(CreateEmployeeCommand command) async {
+    final response = await dio.post('/api/employees', data: command.toJson());
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return EmployeeDto.fromJson(response.data);
+    }
+    throw ErrorDataException(
+      message: response.data['message'] ?? 'Create employee failed',
+    );
+  }
+
+  @override
+  Future<void> updateEmployee(UpdateEmployeeCommand command) async {
+    final response = await dio.put(
+      '/api/employees/${command.id}',
+      data: command.toJson(),
+    );
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw ErrorDataException(
+        message: response.data['message'] ?? 'Update employee failed',
+      );
     }
   }
 
   @override
-  Future<List<EmployeeModel>> getEmployees(Map<String, dynamic> params) async {
-    try {
-      Query query = _firestore.collection(_collection);
-      
-      // Apply filters based on params
-      if (params.containsKey('departmentId') && params['departmentId'] != null) {
-        query = query.where('departmentId', isEqualTo: params['departmentId']);
+  Future<EmployeeDto?> getEmployeeById(String id) async {
+    final response = await dio.get('/api/employees/$id');
+    if (response.statusCode == 200) {
+      return EmployeeDto.fromJson(response.data);
+    }
+    if (response.statusCode == 404) return null;
+    throw ErrorDataException(
+      message: response.data['message'] ?? 'Get employee failed',
+    );
+  }
+
+  @override
+  Future<List<EmployeeDto>> getPageEmployee(GetPageEmployeeQuery query) async {
+    final response = await dio.get(
+      '/api/employees',
+      queryParameters: query.toQueryParams(),
+    );
+    if (response.statusCode == 200) {
+      final resp = response.data;
+      if (resp is List) {
+        return resp
+            .map((e) => EmployeeDto.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
-      if (params.containsKey('titleId') && params['titleId'] != null) {
-        query = query.where('titleId', isEqualTo: params['titleId']);
+      if (resp is Map<String, dynamic>) {
+        dynamic items = resp['items'] ?? resp['data'] ?? resp['results'] ?? resp['rows'];
+        if (items == null && resp.containsKey('data') && resp['data'] is Map) {
+          final nested = resp['data'] as Map<String, dynamic>;
+          items = nested['items'] ?? nested['data'];
+        }
+        if (items is List) {
+          return items
+              .map((e) => EmployeeDto.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+        return [EmployeeDto.fromJson(resp)];
       }
-      
-      final querySnapshot = await query.get();
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return EmployeeModel.fromListJson({
-          'id': doc.id,
-          ...data,
-        });
-      }).toList();
-    } catch (e) {
-      throw Exception('Failed to get employees: $e');
+      return [EmployeeDto.fromJson(Map<String, dynamic>.from(resp))];
     }
-  }
-
-  @override
-  Future<EmployeeModel> getEmployeeDetail(String id) async {
-    try {
-      final doc = await _firestore.collection(_collection).doc(id).get();
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>;
-        return EmployeeModel.fromJson({
-          'id': doc.id,
-          ...data,
-        });
-      } else {
-        throw Exception('Employee not found');
-      }
-    } catch (e) {
-      throw Exception('Failed to get employee detail: $e');
-    }
-  }
-
-  @override
-  Future<void> updateEmployee(String id, Map<String, dynamic> data) async {
-    try {
-      await _firestore.collection(_collection).doc(id).update(data);
-    } catch (e) {
-      throw Exception('Failed to update employee: $e');
-    }
-  }
-
-  @override
-  Future<List<EmployeeBasicInfoModel>> getEmployeeBasicInfo() async {
-    try {
-      final querySnapshot = await _firestore.collection(_collection).get();
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return EmployeeBasicInfoModel.fromJson({
-          'id': doc.id,
-          ...data,
-        });
-      }).toList();
-    } catch (e) {
-      throw Exception('Failed to get employee basic info: $e');
-    }
+    throw ErrorDataException(
+      message: response.data['message'] ?? 'Get employees failed',
+    );
   }
 }

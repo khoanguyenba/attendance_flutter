@@ -1,61 +1,103 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/department_model.dart';
+import 'package:attendance_system/core/data/datasources/base_remote_datasource.dart';
+import 'package:attendance_system/core/data/models/common.dart';
+import 'package:attendance_system/features/department/data/models/department_dto.dart';
+import 'package:attendance_system/features/department/data/models/create_department_command.dart';
+import 'package:attendance_system/features/department/data/models/update_department_command.dart';
+import 'package:attendance_system/features/department/data/models/delete_department_command.dart';
+import 'package:attendance_system/features/department/data/models/get_page_department_query.dart';
 
 abstract class DepartmentRemoteDataSource {
-  Future<String> createDepartment(Map<String, dynamic> data);
-  Future<List<DepartmentModel>> getDepartments();
-  Future<void> updateDepartment(String id, Map<String, dynamic> data);
-  Future<void> deleteDepartment(String id);
+  Future<DepartmentDto> createDepartment(CreateDepartmentCommand command);
+  Future<void> updateDepartment(UpdateDepartmentCommand command);
+  Future<void> deleteDepartment(DeleteDepartmentCommand command);
+  Future<DepartmentDto?> getDepartmentById(String id);
+  Future<List<DepartmentDto>> getPageDepartment(GetPageDepartmentQuery query);
 }
 
-class DepartmentRemoteDataSourceImpl implements DepartmentRemoteDataSource {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String _collection = 'departments';
+class DepartmentRemoteDataSourceImpl extends BaseRemoteDataSource
+    implements DepartmentRemoteDataSource {
+  DepartmentRemoteDataSourceImpl(super.dio, super.secureStorage);
 
   @override
-  Future<String> createDepartment(Map<String, dynamic> data) async {
-    try {
-      final docRef = await _firestore.collection(_collection).add({
-        ...data,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      return docRef.id;
-    } catch (e) {
-      throw Exception('Failed to create department: $e');
+  Future<DepartmentDto> createDepartment(
+    CreateDepartmentCommand command,
+  ) async {
+    final response = await dio.post('/api/departments', data: command.toJson());
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return DepartmentDto.fromJson(response.data);
+    }
+    throw ErrorDataException(
+      message: response.data['message'] ?? 'Create department failed',
+    );
+  }
+
+  @override
+  Future<void> updateDepartment(UpdateDepartmentCommand command) async {
+    final response = await dio.put(
+      '/api/departments/${command.id}',
+      data: command.toJson(),
+    );
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw ErrorDataException(
+        message: response.data['message'] ?? 'Update department failed',
+      );
     }
   }
 
   @override
-  Future<List<DepartmentModel>> getDepartments() async {
-    try {
-      final querySnapshot = await _firestore.collection(_collection).get();
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return DepartmentModel.fromListJson({
-          'id': doc.id,
-          ...data,
-        });
-      }).toList();
-    } catch (e) {
-      throw Exception('Failed to get departments: $e');
+  Future<void> deleteDepartment(DeleteDepartmentCommand command) async {
+    final response = await dio.delete('/api/departments/${command.id}');
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw ErrorDataException(
+        message: response.data['message'] ?? 'Delete department failed',
+      );
     }
   }
 
   @override
-  Future<void> updateDepartment(String id, Map<String, dynamic> data) async {
-    try {
-      await _firestore.collection(_collection).doc(id).update(data);
-    } catch (e) {
-      throw Exception('Failed to update department: $e');
+  Future<DepartmentDto?> getDepartmentById(String id) async {
+    final response = await dio.get('/api/departments/$id');
+    if (response.statusCode == 200) {
+      return DepartmentDto.fromJson(response.data);
     }
+    if (response.statusCode == 404) return null;
+    throw ErrorDataException(
+      message: response.data['message'] ?? 'Get department failed',
+    );
   }
 
   @override
-  Future<void> deleteDepartment(String id) async {
-    try {
-      await _firestore.collection(_collection).doc(id).delete();
-    } catch (e) {
-      throw Exception('Failed to delete department: $e');
+  Future<List<DepartmentDto>> getPageDepartment(
+    GetPageDepartmentQuery query,
+  ) async {
+    final response = await dio.get(
+      '/api/departments',
+      queryParameters: query.toQueryParams(),
+    );
+    if (response.statusCode == 200) {
+      final resp = response.data;
+      if (resp is List) {
+        return resp
+            .map((e) => DepartmentDto.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      if (resp is Map<String, dynamic>) {
+        dynamic items = resp['items'] ?? resp['data'] ?? resp['results'] ?? resp['rows'];
+        if (items == null && resp.containsKey('data') && resp['data'] is Map) {
+          final nested = resp['data'] as Map<String, dynamic>;
+          items = nested['items'] ?? nested['data'];
+        }
+        if (items is List) {
+          return items
+              .map((e) => DepartmentDto.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+        return [DepartmentDto.fromJson(resp)];
+      }
+      return [DepartmentDto.fromJson(Map<String, dynamic>.from(resp))];
     }
+    throw ErrorDataException(
+      message: response.data['message'] ?? 'Get departments failed',
+    );
   }
 }

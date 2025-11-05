@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../domain/entities/department.dart';
-import '../data/datasources/department_remote_datasource.dart';
-import 'create_department_screen.dart';
+import '../../../core/di/injection.dart';
+import '../domain/entities/app_department.dart';
+import '../domain/usecases/get_page_department_usecase.dart';
+import '../domain/usecases/delete_department_usecase.dart';
 import 'edit_department_screen.dart';
 
 class DepartmentListScreen extends StatefulWidget {
@@ -12,14 +13,19 @@ class DepartmentListScreen extends StatefulWidget {
 }
 
 class _DepartmentListScreenState extends State<DepartmentListScreen> {
-  final DepartmentRemoteDataSource _dataSource = DepartmentRemoteDataSourceImpl();
-  List<Department> departments = [];
+  late final GetPageDepartmentUseCase _getPageUseCase;
+  late final DeleteDepartmentUseCase _deleteUseCase;
+  
+  List<AppDepartment> departments = [];
   bool isLoading = false;
   String? error;
 
   @override
   void initState() {
     super.initState();
+    _getPageUseCase = resolve<GetPageDepartmentUseCase>();
+    _deleteUseCase = resolve<DeleteDepartmentUseCase>();
+    
     _loadDepartments();
   }
 
@@ -30,38 +36,16 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
     });
 
     try {
-      final result = await _dataSource.getDepartments();
+      final result = await _getPageUseCase.call(
+        pageIndex: 1,
+        pageSize: 100,
+      );
       setState(() {
-        departments = result.map((model) => Department(
-          id: model.id,
-          name: model.name,
-          description: model.description,
-          createdAt: model.createdAt,
-        )).toList();
+        departments = result;
       });
     } catch (e) {
-      // Fallback to mock data
       setState(() {
-        departments = [
-          Department(
-            id: '1',
-            name: 'Phòng IT',
-            description: 'Phòng ban Công nghệ Thông tin',
-            createdAt: DateTime.now(),
-          ),
-          Department(
-            id: '2',
-            name: 'Phòng Nhân sự',
-            description: 'Phòng ban Quản lý Nhân sự',
-            createdAt: DateTime.now(),
-          ),
-          Department(
-            id: '3',
-            name: 'Phòng Kế toán',
-            description: 'Phòng ban Kế toán Tài chính',
-            createdAt: DateTime.now(),
-          ),
-        ];
+        error = e.toString();
       });
     } finally {
       setState(() {
@@ -70,7 +54,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
     }
   }
 
-  Future<void> _deleteDepartment(Department department) async {
+  Future<void> _deleteDepartment(AppDepartment department) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -92,7 +76,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
 
     if (confirmed == true) {
       try {
-        await _dataSource.deleteDepartment(department.id);
+        await _deleteUseCase.call(department.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Xóa phòng ban thành công')),
@@ -121,7 +105,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const CreateDepartmentScreen(),
+                  builder: (context) => const EditDepartmentScreen(), // null departmentId = create mode
                 ),
               );
               if (result == true) {

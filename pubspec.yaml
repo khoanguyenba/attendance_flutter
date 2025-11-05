@@ -42,6 +42,9 @@ dependencies:
   network_info_plus: ^6.0.2
   permission_handler: ^11.3.1
   intl: ^0.19.0
+  dio: ^5.9.0
+  flutter_secure_storage: ^9.2.4
+  get_it: ^8.2.0
 
 dev_dependencies:
   flutter_test:

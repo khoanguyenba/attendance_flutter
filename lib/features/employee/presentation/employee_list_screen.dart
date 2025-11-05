@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:attendance_system/core/routing/route_constraint.dart';
-import '../domain/entities/employee.dart';
-import '../data/datasources/employee_remote_datasource.dart';
+import '../../../core/di/injection.dart';
+import '../domain/entities/app_employee.dart';
+import '../domain/usecases/get_page_employee_usecase.dart';
+import 'edit_employee_screen.dart';
 
 class EmployeeListScreen extends StatefulWidget {
   const EmployeeListScreen({super.key});
@@ -12,124 +12,37 @@ class EmployeeListScreen extends StatefulWidget {
 }
 
 class _EmployeeListScreenState extends State<EmployeeListScreen> {
-  final EmployeeRemoteDataSource _dataSource = EmployeeRemoteDataSourceImpl();
-  List<Employee> employees = [];
+  late final GetPageEmployeeUseCase _getPageUseCase;
+  
+  List<AppEmployee> employees = [];
   bool isLoading = false;
   String? error;
-  int currentPage = 1;
-  final int pageSize = 10;
-  bool hasMoreData = true;
-
-  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _getPageUseCase = resolve<GetPageEmployeeUseCase>();
+    
     _loadEmployees();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadEmployees({bool isRefresh = false}) async {
-    if (isLoading) return;
-
+  Future<void> _loadEmployees() async {
     setState(() {
       isLoading = true;
       error = null;
-      if (isRefresh) {
-        currentPage = 1;
-        employees.clear();
-        hasMoreData = true;
-      }
     });
 
     try {
-      final params = {
-        'page': currentPage,
-        'size': pageSize,
-        if (_searchController.text.isNotEmpty) 'search': _searchController.text,
-      };
-
-      final result = await _dataSource.getEmployees(params);
+      final result = await _getPageUseCase.call(
+        pageIndex: 1,
+        pageSize: 100,
+      );
       setState(() {
-        final newEmployees = result.map((model) => Employee(
-          id: model.id,
-          fullName: model.fullName,
-          code: model.code,
-          email: model.email,
-          gender: model.gender,
-          birthDate: model.birthDate,
-          departmentId: model.departmentId,
-          titleId: model.titleId,
-          createdAt: model.createdAt,
-          titleName: model.titleName,
-          departmentName: model.departmentName,
-        )).toList();
-
-        if (isRefresh) {
-          employees = newEmployees;
-        } else {
-          employees.addAll(newEmployees);
-        }
-        hasMoreData = newEmployees.length == pageSize;
-        currentPage++;
+        employees = result;
       });
     } catch (e) {
-      // Fallback to mock data
-      final mockEmployees = [
-        Employee(
-          id: '1',
-          fullName: 'Nguyễn Văn A',
-          code: 'NV001',
-          email: 'nva@company.com',
-          gender: 1,
-          birthDate: DateTime(1990, 5, 15),
-          departmentId: 'dept1',
-          titleId: 'title1',
-          createdAt: DateTime.now(),
-          departmentName: 'Phòng IT',
-          titleName: 'Developer',
-        ),
-        Employee(
-          id: '2',
-          fullName: 'Trần Thị B',
-          code: 'NV002',
-          email: 'ttb@company.com',
-          gender: 0,
-          birthDate: DateTime(1988, 8, 20),
-          departmentId: 'dept2',
-          titleId: 'title2',
-          createdAt: DateTime.now(),
-          departmentName: 'Phòng HR',
-          titleName: 'HR Manager',
-        ),
-        Employee(
-          id: '3',
-          fullName: 'Lê Văn C',
-          code: 'NV003',
-          email: 'lvc@company.com',
-          gender: 1,
-          birthDate: DateTime(1992, 3, 10),
-          departmentId: 'dept1',
-          titleId: 'title3',
-          createdAt: DateTime.now(),
-          departmentName: 'Phòng IT',
-          titleName: 'Senior Developer',
-        ),
-      ];
-
       setState(() {
-        if (isRefresh) {
-          employees = mockEmployees;
-        } else {
-          employees.addAll(mockEmployees);
-        }
-        hasMoreData = false;
-        currentPage++;
+        error = e.toString();
       });
     } finally {
       setState(() {
@@ -138,61 +51,79 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     }
   }
 
-  void _searchEmployees() {
-    _loadEmployees(isRefresh: true);
+  String _getGenderText(Gender gender) {
+    switch (gender) {
+      case Gender.male:
+        return 'Nam';
+      case Gender.female:
+        return 'Nữ';
+      case Gender.other:
+        return 'Khác';
+    }
+  }
+
+  String _getStatusText(EmployeeStatus status) {
+    switch (status) {
+      case EmployeeStatus.active:
+        return 'Đang làm việc';
+      case EmployeeStatus.inactive:
+        return 'Tạm nghỉ';
+      case EmployeeStatus.terminated:
+        return 'Đã nghỉ việc';
+    }
+  }
+
+  Color _getStatusColor(EmployeeStatus status) {
+    switch (status) {
+      case EmployeeStatus.active:
+        return Colors.green;
+      case EmployeeStatus.inactive:
+        return Colors.orange;
+      case EmployeeStatus.terminated:
+        return Colors.red;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Tìm kiếm theo tên nhân viên',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    _searchEmployees();
-                  },
+      appBar: AppBar(
+        title: const Text('Danh sách nhân viên'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditEmployeeScreen(), // null employeeId = create mode
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onSubmitted: (_) => _searchEmployees(),
-            ),
-          ),
-          Expanded(
-            child: _buildBody(),
+              );
+              if (result == true) {
+                _loadEmployees();
+              }
+            },
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go(RouteConstraint.createEmployee),
-        child: const Icon(Icons.add),
-      ),
+      body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
-    if (isLoading && employees.isEmpty) {
+    if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (error != null && employees.isEmpty) {
+    if (error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text('Lỗi: $error'),
+            const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _loadEmployees(isRefresh: true),
+              onPressed: _loadEmployees,
               child: const Text('Thử lại'),
             ),
           ],
@@ -207,23 +138,10 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadEmployees(isRefresh: true),
+      onRefresh: _loadEmployees,
       child: ListView.builder(
-        itemCount: employees.length + (hasMoreData ? 1 : 0),
+        itemCount: employees.length,
         itemBuilder: (context, index) {
-          if (index == employees.length) {
-            if (hasMoreData) {
-              _loadEmployees();
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-            return null;
-          }
-
           final employee = employees[index];
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -232,15 +150,49 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Mã NV: ${employee.code}'),
-                  if (employee.departmentName != null)
-                    Text('Phòng ban: ${employee.departmentName}'),
-                  if (employee.titleName != null)
-                    Text('Chức vụ: ${employee.titleName}'),
+                  Text('Mã: ${employee.code}'),
+                  Text('Email: ${employee.email}'),
+                  Row(
+                    children: [
+                      Text('Giới tính: ${_getGenderText(employee.gender)}'),
+                      const SizedBox(width: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(employee.status).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _getStatusText(employee.status),
+                          style: TextStyle(
+                            color: _getStatusColor(employee.status),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () => context.go(RouteConstraint.employeeDetail, extra: employee.id),
+              trailing: IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditEmployeeScreen(
+                        employeeId: employee.id,
+                      ),
+                    ),
+                  );
+                  if (result == true) {
+                    _loadEmployees();
+                  }
+                },
+              ),
             ),
           );
         },
@@ -248,3 +200,4 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     );
   }
 }
+
