@@ -10,6 +10,9 @@ jobs:
     name: Build and Release APK
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,11 +31,11 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
-      
+
       - name: Decode Keystore
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
-      
+
       - name: Create key.properties
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
@@ -42,7 +45,7 @@ jobs:
 
       - name: Build Signed APK
         run: flutter build apk --release
-      
+
       - name: Set APK Name
         run: echo "APK_NAME=app-${{ github.ref_name }}.apk" >> $GITHUB_ENV
 
@@ -52,6 +55,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: build/app/outputs/flutter-apk/${{ env.APK_NAME }}          
+          files: build/app/outputs/flutter-apk/${{ env.APK_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
