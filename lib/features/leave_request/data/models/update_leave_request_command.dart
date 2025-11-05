@@ -7,7 +7,7 @@ class UpdateLeaveRequestCommand {
   final DateTime endDate;
   final String reason;
   final LeaveStatus status;
-  final String approvedById;
+  final String? approvedById;
 
   UpdateLeaveRequestCommand({
     required this.id,
@@ -16,7 +16,7 @@ class UpdateLeaveRequestCommand {
     required this.endDate,
     required this.reason,
     required this.status,
-    required this.approvedById,
+    this.approvedById,
   });
 
   Map<String, dynamic> toJson() => {

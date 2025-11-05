@@ -5,7 +5,7 @@ class AppLeaveRequest {
   final DateTime endDate;
   final String reason;
   final LeaveStatus status;
-  final String approvedById;
+  final String? approvedById;
 
   AppLeaveRequest({
     required this.id,
@@ -14,7 +14,7 @@ class AppLeaveRequest {
     required this.endDate,
     required this.reason,
     required this.status,
-    required this.approvedById,
+    this.approvedById,
   });
 }
 
