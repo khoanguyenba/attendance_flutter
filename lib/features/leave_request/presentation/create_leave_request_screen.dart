@@ -1,3 +1,7 @@
+// Màn: Tạo đơn nghỉ phép
+// File này cho phép tạo đơn nghỉ phép mới
+// - Admin/Manager: có thể chọn nhân viên
+// - User thường: tự động lấy nhân viên của user hiện tại
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/injection.dart';
@@ -7,6 +11,7 @@ import '../../employee/domain/usecases/get_page_employee_usecase.dart';
 import '../../user/domain/usecases/get_current_user_usecase.dart';
 import '../../user/domain/entities/app_user.dart';
 
+// Widget chính cho màn tạo đơn nghỉ phép
 class CreateLeaveRequestScreen extends StatefulWidget {
   const CreateLeaveRequestScreen({super.key});
 
@@ -16,21 +21,26 @@ class CreateLeaveRequestScreen extends StatefulWidget {
 }
 
 class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
+  // UseCase để tạo đơn, lấy danh sách nhân viên, và lấy user hiện tại
   late final CreateLeaveRequestUseCase _createUseCase;
   late final GetPageEmployeeUseCase _getEmployeesUseCase;
   late final GetCurrentUserUseCase _getCurrentUserUseCase;
 
+  // Form key và controller
   final _formKey = GlobalKey<FormState>();
   final _reasonController = TextEditingController();
 
+  // Dữ liệu form: danh sách nhân viên, nhân viên được chọn, ngày bắt đầu/kết thúc
   List<AppEmployee> _employees = [];
   String? _selectedEmployeeId;
   DateTime? _startDate;
   DateTime? _endDate;
 
+  // Thông tin user hiện tại và quyền
   AppUser? _currentUser;
-  bool _canSelectEmployee = false;
+  bool _canSelectEmployee = false; // true nếu admin/manager
 
+  // Trạng thái
   bool isLoading = false;
   bool isLoadingData = false;
   String? error;
@@ -40,36 +50,39 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
   @override
   void initState() {
     super.initState();
+    // Lấy UseCase từ DI
     _createUseCase = resolve<CreateLeaveRequestUseCase>();
     _getEmployeesUseCase = resolve<GetPageEmployeeUseCase>();
     _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
 
+    // Tải dữ liệu ban đầu
     _loadInitialData();
   }
 
+  // Tải dữ liệu ban đầu: user hiện tại và danh sách nhân viên (nếu cần)
   Future<void> _loadInitialData() async {
     setState(() {
       isLoadingData = true;
     });
 
     try {
-      // Load current user first
+      // Load user hiện tại để kiểm tra quyền
       final currentUser = await _getCurrentUserUseCase.call();
 
       if (currentUser != null) {
         _currentUser = currentUser;
 
-        // Check if user is admin or manager
+        // Kiểm tra xem user có phải admin/manager không
         final role = currentUser.role.toLowerCase();
         _canSelectEmployee = role == 'admin' || role == 'manager';
 
-        // If not admin/manager, set employeeId to current user's employeeId
+        // Nếu không phải admin/manager, tự động set employeeId
         if (!_canSelectEmployee) {
           _selectedEmployeeId = currentUser.employeeId;
         }
       }
 
-      // Load employees only if user can select
+      // Load danh sách nhân viên (chỉ khi user có quyền chọn)
       if (_canSelectEmployee) {
         await _loadEmployees();
       }
@@ -84,6 +97,7 @@ class _CreateLeaveRequestScreenState extends State<CreateLeaveRequestScreen> {
     }
   }
 
+  // Tải danh sách nhân viên
   Future<void> _loadEmployees() async {
     try {
       final employees = await _getEmployeesUseCase.call(

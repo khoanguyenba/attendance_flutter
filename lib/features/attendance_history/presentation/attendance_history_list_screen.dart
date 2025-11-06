@@ -1,3 +1,6 @@
+// Màn: Lịch sử chấm công
+// File này hiển thị lịch sử chấm công, cho phép lọc theo nhân viên/ngày
+// và thêm bản ghi chấm công mới
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +14,7 @@ import '../../worktime/domain/usecases/get_page_work_time_usecase.dart';
 import '../../user/domain/usecases/get_current_user_usecase.dart';
 import 'create_attendance_history_screen.dart';
 
+// Widget chính cho màn lịch sử chấm công
 class AttendanceHistoryListScreen extends StatefulWidget {
   const AttendanceHistoryListScreen({super.key});
 
@@ -21,23 +25,25 @@ class AttendanceHistoryListScreen extends StatefulWidget {
 
 class _AttendanceHistoryListScreenState
     extends State<AttendanceHistoryListScreen> {
+  // UseCase để lấy lịch sử, nhân viên, ca làm việc, user hiện tại
   late final GetPageAttendanceHistoryUseCase _getPageUseCase;
   late final GetPageEmployeeUseCase _getEmployeesUseCase;
   late final GetPageWorkTimeUseCase _getWorkTimesUseCase;
   late final GetCurrentUserUseCase _getCurrentUserUseCase;
 
+  // Dữ liệu: lịch sử chấm công, map nhân viên và ca làm việc (để hiển thị tên)
   List<AppAttendanceHistory> attendanceHistories = [];
   Map<String, AppEmployee> employeesMap = {};
   Map<String, AppWorkTime> workTimesMap = {};
   bool isLoading = false;
   String? error;
 
-  // User info
+  // Thông tin user hiện tại và quyền
   String? _currentUserRole;
   String? _currentUserEmployeeId;
-  bool _canSelectEmployee = false;
+  bool _canSelectEmployee = false; // true nếu admin/manager
 
-  // Filters
+  // Bộ lọc: theo nhân viên và khoảng thời gian
   String? _selectedEmployeeId;
   DateTime? _startDate;
   DateTime? _endDate;
@@ -47,14 +53,17 @@ class _AttendanceHistoryListScreenState
   @override
   void initState() {
     super.initState();
+    // Lấy UseCase từ DI
     _getPageUseCase = resolve<GetPageAttendanceHistoryUseCase>();
     _getEmployeesUseCase = resolve<GetPageEmployeeUseCase>();
     _getWorkTimesUseCase = resolve<GetPageWorkTimeUseCase>();
     _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
 
+    // Tải dữ liệu ban đầu
     _loadInitialData();
   }
 
+  // Tải dữ liệu ban đầu: user, nhân viên, ca làm việc, lịch sử
   Future<void> _loadInitialData() async {
     setState(() {
       isLoading = true;
@@ -62,7 +71,7 @@ class _AttendanceHistoryListScreenState
     });
 
     try {
-      // Get current user info
+      // Load user hiện tại để kiểm tra quyền
       final currentUser = await _getCurrentUserUseCase.call();
       if (currentUser != null) {
         _currentUserRole = currentUser.role;
@@ -71,19 +80,19 @@ class _AttendanceHistoryListScreenState
             currentUser.role.toLowerCase() == 'admin' ||
             currentUser.role.toLowerCase() == 'manager';
 
-        // If not admin/manager, auto-select current employee
+        // Nếu không phải admin/manager, tự động lọc theo nhân viên hiện tại
         if (!_canSelectEmployee) {
           _selectedEmployeeId = currentUser.employeeId;
         }
       }
 
-      // Load employees for mapping
+      // Load danh sách nhân viên (để map ID -> tên)
       final employees = await _getEmployeesUseCase.call(
         pageIndex: 1,
         pageSize: 1000,
       );
 
-      // Load work times for mapping
+      // Load danh sách ca làm việc (để map ID -> tên)
       final workTimes = await _getWorkTimesUseCase.execute(
         pageIndex: 1,
         pageSize: 1000,
@@ -94,6 +103,7 @@ class _AttendanceHistoryListScreenState
         workTimesMap = {for (var w in workTimes) w.id: w};
       });
 
+      // Load lịch sử chấm công
       await _loadAttendanceHistories();
     } catch (e) {
       setState(() {
@@ -103,6 +113,7 @@ class _AttendanceHistoryListScreenState
     }
   }
 
+  // Tải lịch sử chấm công (với filter nếu có)
   Future<void> _loadAttendanceHistories() async {
     setState(() {
       isLoading = true;
@@ -131,6 +142,7 @@ class _AttendanceHistoryListScreenState
     }
   }
 
+  // Hiển thị dialog chọn khoảng thời gian
   Future<void> _selectDateRange() async {
     final picked = await showDateRangePicker(
       context: context,
@@ -150,9 +162,10 @@ class _AttendanceHistoryListScreenState
     }
   }
 
+  // Xóa tất cả bộ lọc
   void _clearFilters() {
     setState(() {
-      // Only clear employee filter if user can select employee
+      // Chỉ xóa filter nhân viên nếu user có quyền chọn
       if (_canSelectEmployee) {
         _selectedEmployeeId = null;
       }
@@ -162,6 +175,7 @@ class _AttendanceHistoryListScreenState
     _loadAttendanceHistories();
   }
 
+  // Chuyển enum loại chấm công sang text tiếng Việt
   String _getTypeText(AttendanceType type) {
     switch (type) {
       case AttendanceType.checkIn:
@@ -171,6 +185,7 @@ class _AttendanceHistoryListScreenState
     }
   }
 
+  // Chuyển enum trạng thái sang text tiếng Việt
   String _getStatusText(AttendanceStatus status) {
     switch (status) {
       case AttendanceStatus.onTime:
@@ -182,6 +197,7 @@ class _AttendanceHistoryListScreenState
     }
   }
 
+  // Màu sắc cho từng trạng thái
   Color _getStatusColor(AttendanceStatus status) {
     switch (status) {
       case AttendanceStatus.onTime:
@@ -193,6 +209,7 @@ class _AttendanceHistoryListScreenState
     }
   }
 
+  // Màu sắc cho từng loại chấm công
   Color _getTypeColor(AttendanceType type) {
     switch (type) {
       case AttendanceType.checkIn:
@@ -204,11 +221,12 @@ class _AttendanceHistoryListScreenState
 
   @override
   Widget build(BuildContext context) {
-    // If this screen is embedded in a parent Scaffold (e.g. HomeScreen with its own AppBar)
-    // we should not render a nested AppBar to avoid duplicate titles. In that case
-    // render only the content. Otherwise render a full Scaffold with the AppBar/actions.
+    // Kiểm tra xem màn này có nằm trong Scaffold cha không (vd: HomeScreen có AppBar riêng)
+    // Nếu có thì không render AppBar để tránh trùng lặp title
+    // Nếu không thì render đầy đủ Scaffold với AppBar và actions
     final hasParentScaffold = Scaffold.maybeOf(context) != null;
 
+    // Nội dung chính: filter chips (nếu có) + danh sách lịch sử
     final content = Column(
       children: [
         if ((_canSelectEmployee && _selectedEmployeeId != null) ||
@@ -220,7 +238,8 @@ class _AttendanceHistoryListScreenState
     );
 
     if (hasParentScaffold) {
-      // Provide floating action button and filter entry inside content when embedded
+      // Nếu đã có Scaffold cha: chỉ hiển thị nội dung + floating buttons
+      // Dùng Stack để đặt 2 FAB (filter + thêm mới) ở góc phải dưới
       return Padding(
         padding: const EdgeInsets.only(top: 8.0),
         child: Stack(
@@ -232,6 +251,7 @@ class _AttendanceHistoryListScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Nút lọc (nhỏ)
                   FloatingActionButton(
                     heroTag: 'filter_btn',
                     mini: true,
@@ -239,10 +259,13 @@ class _AttendanceHistoryListScreenState
                     child: const Icon(Icons.filter_alt),
                   ),
                   const SizedBox(height: 8),
+                  // Nút thêm bản ghi chấm công mới
                   FloatingActionButton(
                     heroTag: 'add_btn',
                     onPressed: () async {
-                      final result = await context.push<bool>('/attendance/new');
+                      final result = await context.push<bool>(
+                        '/attendance/new',
+                      );
                       if (result == true) {
                         _loadAttendanceHistories();
                       }
@@ -257,14 +280,18 @@ class _AttendanceHistoryListScreenState
       );
     }
 
+    // Nếu không có Scaffold cha: render đầy đủ với AppBar
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lịch sử chấm công'),
         actions: [
+          // Nút lọc trên AppBar
           IconButton(
             icon: const Icon(Icons.filter_alt),
             onPressed: _showFilterDialog,
           ),
+          // Nút thêm mới trên AppBar
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () async {
@@ -280,6 +307,7 @@ class _AttendanceHistoryListScreenState
     );
   }
 
+  // Hiển thị các chip filter đang được áp dụng (có nút xóa từng filter)
   Widget _buildFilterChips() {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -287,6 +315,7 @@ class _AttendanceHistoryListScreenState
       child: Wrap(
         spacing: 8,
         children: [
+          // Chip hiển thị nhân viên đang được lọc (nếu có)
           if (_canSelectEmployee && _selectedEmployeeId != null)
             Chip(
               label: Text(
@@ -299,6 +328,7 @@ class _AttendanceHistoryListScreenState
                 _loadAttendanceHistories();
               },
             ),
+          // Chip hiển thị khoảng thời gian đang được lọc (nếu có)
           if (_startDate != null && _endDate != null)
             Chip(
               label: Text(
@@ -312,6 +342,7 @@ class _AttendanceHistoryListScreenState
                 _loadAttendanceHistories();
               },
             ),
+          // Nút xóa tất cả filter
           TextButton.icon(
             icon: const Icon(Icons.clear_all, size: 16),
             label: const Text('Xóa lọc'),
@@ -322,6 +353,7 @@ class _AttendanceHistoryListScreenState
     );
   }
 
+  // Hiển thị dialog để chọn bộ lọc
   void _showFilterDialog() {
     showDialog(
       context: context,
@@ -330,6 +362,7 @@ class _AttendanceHistoryListScreenState
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Dropdown chọn nhân viên (chỉ hiện nếu user có quyền)
             if (_canSelectEmployee)
               DropdownButtonFormField<String>(
                 initialValue: _selectedEmployeeId,
@@ -353,6 +386,7 @@ class _AttendanceHistoryListScreenState
                 },
               ),
             if (_canSelectEmployee) const SizedBox(height: 16),
+            // ListTile để chọn khoảng thời gian (tap để mở date range picker)
             ListTile(
               title: const Text('Khoảng thời gian'),
               subtitle: _startDate != null && _endDate != null
@@ -369,6 +403,7 @@ class _AttendanceHistoryListScreenState
           ],
         ),
         actions: [
+          // Nút xóa tất cả filter
           TextButton(
             onPressed: () {
               _clearFilters();
@@ -376,6 +411,7 @@ class _AttendanceHistoryListScreenState
             },
             child: const Text('Xóa lọc'),
           ),
+          // Nút áp dụng filter và tải lại dữ liệu
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -388,11 +424,14 @@ class _AttendanceHistoryListScreenState
     );
   }
 
+  // Render body chính: loading / error / empty / danh sách
   Widget _buildBody() {
+    // Đang tải dữ liệu
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Có lỗi
     if (error != null) {
       return Center(
         child: Column(
@@ -409,10 +448,12 @@ class _AttendanceHistoryListScreenState
       );
     }
 
+    // Không có dữ liệu
     if (attendanceHistories.isEmpty) {
       return const Center(child: Text('Không có lịch sử chấm công nào'));
     }
 
+    // Hiển thị danh sách (với RefreshIndicator để kéo xuống làm mới)
     return RefreshIndicator(
       onRefresh: _loadAttendanceHistories,
       child: ListView.builder(
@@ -422,9 +463,11 @@ class _AttendanceHistoryListScreenState
           final employee = employeesMap[history.employeeId];
           final workTime = workTimesMap[history.workTimeId];
 
+          // Card cho mỗi bản ghi chấm công
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: ListTile(
+              // Icon loại chấm công (vào = login, ra = logout)
               leading: CircleAvatar(
                 backgroundColor: _getTypeColor(history.type),
                 child: Icon(
@@ -434,6 +477,7 @@ class _AttendanceHistoryListScreenState
                   color: Colors.white,
                 ),
               ),
+              // Tiêu đề: Tên ca làm việc + Loại (Vào/Ra)
               title: Row(
                 children: [
                   Expanded(
@@ -447,9 +491,11 @@ class _AttendanceHistoryListScreenState
                   ),
                 ],
               ),
+              // Thông tin chi tiết: tên nhân viên, ngày giờ, trạng thái
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Tên nhân viên
                   Text(
                     employee?.fullName ?? 'Unknown Employee',
                     style: const TextStyle(
@@ -458,8 +504,10 @@ class _AttendanceHistoryListScreenState
                     ),
                   ),
                   const SizedBox(height: 4),
+                  // Ngày giờ chấm công
                   Text(_dateFormat.format(history.attendanceDate)),
                   const SizedBox(height: 4),
+                  // Badge trạng thái (đúng giờ/trễ/sớm)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,

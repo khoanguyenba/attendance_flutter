@@ -1,48 +1,56 @@
+// Màn: Tạo/Sửa phòng ban
+// File này cho phép tạo mới hoặc chỉnh sửa thông tin phòng ban
+// Mode: departmentId == null => tạo mới, departmentId != null => sửa
 import 'package:flutter/material.dart';
 import '../../../core/di/injection.dart';
 import '../domain/usecases/create_department_usecase.dart';
 import '../domain/usecases/update_department_usecase.dart';
 import '../domain/usecases/get_department_by_id_usecase.dart';
 
+// Widget chính cho màn tạo/sửa phòng ban
 class EditDepartmentScreen extends StatefulWidget {
-  final String? departmentId; // null = create mode, not null = edit mode
-  
-  const EditDepartmentScreen({
-    super.key,
-    this.departmentId,
-  });
+  final String? departmentId; // null = tạo mới, !null = sửa
+
+  const EditDepartmentScreen({super.key, this.departmentId});
 
   @override
   State<EditDepartmentScreen> createState() => _EditDepartmentScreenState();
 }
 
 class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
+  // UseCase để tạo, cập nhật, và lấy phòng ban
   late final CreateDepartmentUseCase _createUseCase;
   late final UpdateDepartmentUseCase _updateUseCase;
   late final GetDepartmentByIdUseCase _getByIdUseCase;
-  
+
+  // Form key và controller cho input
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
 
+  // Trạng thái loading và error
   bool isLoading = false;
   String? error;
-  
+
+  // Kiểm tra xem đang ở chế độ sửa hay tạo
   bool get isEditMode => widget.departmentId != null;
 
   @override
   void initState() {
     super.initState();
+    // Lấy UseCase từ DI
     _createUseCase = resolve<CreateDepartmentUseCase>();
     _updateUseCase = resolve<UpdateDepartmentUseCase>();
     _getByIdUseCase = resolve<GetDepartmentByIdUseCase>();
-    
+
+    // Nếu là chế độ sửa, tải dữ liệu phòng ban
     if (isEditMode) {
       _loadDepartment();
     }
   }
-  
+
+  // Tải thông tin phòng ban khi ở chế độ sửa
   Future<void> _loadDepartment() async {
     setState(() {
       isLoading = true;
@@ -52,6 +60,7 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
     try {
       final department = await _getByIdUseCase.call(widget.departmentId!);
       if (department != null) {
+        // Điền dữ liệu vào form
         _codeController.text = department.code;
         _nameController.text = department.name;
         _descriptionController.text = department.description ?? '';
@@ -75,7 +84,9 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
     super.dispose();
   }
 
+  // Lưu phòng ban (tạo mới hoặc cập nhật)
   Future<void> _saveDepartment() async {
+    // Validate form trước
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -85,34 +96,38 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
 
     try {
       if (isEditMode) {
-        // Update existing department
+        // Cập nhật phòng ban đã tồn tại
         await _updateUseCase.call(
           id: widget.departmentId!,
           code: _codeController.text,
           name: _nameController.text,
-          description: _descriptionController.text.isNotEmpty 
-              ? _descriptionController.text 
+          description: _descriptionController.text.isNotEmpty
+              ? _descriptionController.text
               : null,
         );
       } else {
-        // Create new department
+        // Tạo phòng ban mới
         await _createUseCase.call(
           code: _codeController.text,
           name: _nameController.text,
-          description: _descriptionController.text.isNotEmpty 
-              ? _descriptionController.text 
+          description: _descriptionController.text.isNotEmpty
+              ? _descriptionController.text
               : null,
         );
       }
 
       if (mounted) {
+        // Hiện thông báo thành công
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isEditMode 
-                ? 'Cập nhật phòng ban thành công' 
-                : 'Tạo phòng ban thành công'),
+            content: Text(
+              isEditMode
+                  ? 'Cập nhật phòng ban thành công'
+                  : 'Tạo phòng ban thành công',
+            ),
           ),
         );
+        // Quay lại và trả về true
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -132,6 +147,7 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
       appBar: AppBar(
         title: Text(isEditMode ? 'Chỉnh sửa phòng ban' : 'Tạo phòng ban mới'),
         actions: [
+          // Nút Lưu ở AppBar
           TextButton(
             onPressed: isLoading ? null : _saveDepartment,
             child: const Text('Lưu'),
@@ -143,6 +159,7 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
   }
 
   Widget _buildBody() {
+    // Hiển thị loading khi đang tải dữ liệu trong chế độ sửa
     if (isLoading && isEditMode) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -154,6 +171,7 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Hiển thị thông báo lỗi (nếu có)
             if (error != null)
               Container(
                 width: double.infinity,
@@ -169,6 +187,7 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
                   style: TextStyle(color: Colors.red.shade700),
                 ),
               ),
+            // Trường nhập mã phòng ban
             TextFormField(
               controller: _codeController,
               validator: (value) {
@@ -185,6 +204,7 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            // Trường nhập tên phòng ban
             TextFormField(
               controller: _nameController,
               validator: (value) {
@@ -201,6 +221,7 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            // Trường nhập mô tả (optional, nhiều dòng)
             TextFormField(
               controller: _descriptionController,
               maxLines: 3,
@@ -212,11 +233,14 @@ class _EditDepartmentScreenState extends State<EditDepartmentScreen> {
               ),
             ),
             const SizedBox(height: 32),
+            // Nút lưu ở cuối form
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: isLoading ? null : _saveDepartment,
-                child: Text(isEditMode ? 'Cập nhật phòng ban' : 'Tạo phòng ban'),
+                child: Text(
+                  isEditMode ? 'Cập nhật phòng ban' : 'Tạo phòng ban',
+                ),
               ),
             ),
           ],

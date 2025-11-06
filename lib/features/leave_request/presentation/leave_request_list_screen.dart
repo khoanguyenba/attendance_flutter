@@ -1,3 +1,6 @@
+// Màn: Danh sách đơn nghỉ phép
+// File này hiển thị danh sách đơn nghỉ phép, cho phép lọc theo nhân viên/trạng thái
+// và phê duyệt/từ chối đơn (nếu có quyền)
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/injection.dart';
@@ -11,6 +14,7 @@ import '../../employee/domain/usecases/get_page_employee_usecase.dart';
 import '../../user/domain/usecases/get_current_user_usecase.dart';
 import 'create_leave_request_screen.dart';
 
+// Widget chính cho màn danh sách đơn nghỉ phép
 class LeaveRequestListScreen extends StatefulWidget {
   const LeaveRequestListScreen({super.key});
 
@@ -19,6 +23,7 @@ class LeaveRequestListScreen extends StatefulWidget {
 }
 
 class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
+  // UseCase để lấy danh sách, xóa, phê duyệt, từ chối đơn nghỉ phép
   late final GetPageLeaveRequestUseCase _getPageUseCase;
   late final DeleteLeaveRequestUseCase _deleteUseCase;
   late final ApproveLeaveRequestUseCase _approveUseCase;
@@ -26,13 +31,15 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
   late final GetPageEmployeeUseCase _getEmployeesUseCase;
   late final GetCurrentUserUseCase _getCurrentUserUseCase;
 
+  // Danh sách đơn nghỉ phép và map nhân viên (để hiển thị tên)
   List<AppLeaveRequest> leaveRequests = [];
   Map<String, AppEmployee> employeesMap = {};
-  String? currentUserEmployeeId;
+  String?
+  currentUserEmployeeId; // ID nhân viên của user hiện tại (để phê duyệt)
   bool isLoading = false;
   String? error;
 
-  // Filters
+  // Bộ lọc: theo nhân viên và trạng thái
   String? _selectedEmployeeId;
   LeaveStatus? _selectedStatus;
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
@@ -40,6 +47,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
   @override
   void initState() {
     super.initState();
+    // Lấy UseCase từ DI
     _getPageUseCase = resolve<GetPageLeaveRequestUseCase>();
     _deleteUseCase = resolve<DeleteLeaveRequestUseCase>();
     _approveUseCase = resolve<ApproveLeaveRequestUseCase>();
@@ -47,9 +55,11 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     _getEmployeesUseCase = resolve<GetPageEmployeeUseCase>();
     _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
 
+    // Tải dữ liệu ban đầu (user hiện tại, nhân viên, và danh sách đơn)
     _loadInitialData();
   }
 
+  // Tải dữ liệu ban đầu: user hiện tại, danh sách nhân viên, và đơn nghỉ phép
   Future<void> _loadInitialData() async {
     setState(() {
       isLoading = true;
@@ -57,13 +67,13 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     });
 
     try {
-      // Load current user
+      // Load thông tin user hiện tại (để lấy employeeId khi phê duyệt)
       final currentUser = await _getCurrentUserUseCase.call();
       if (currentUser != null) {
         currentUserEmployeeId = currentUser.employeeId;
       }
 
-      // Load employees for mapping
+      // Load danh sách nhân viên (để map ID -> tên)
       final employees = await _getEmployeesUseCase.call(
         pageIndex: 1,
         pageSize: 1000,
@@ -73,6 +83,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
         employeesMap = {for (var e in employees) e.id: e};
       });
 
+      // Load danh sách đơn nghỉ phép
       await _loadLeaveRequests();
     } catch (e) {
       setState(() {
@@ -82,6 +93,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Tải danh sách đơn nghỉ phép (với filter nếu có)
   Future<void> _loadLeaveRequests() async {
     setState(() {
       isLoading = true;
@@ -109,6 +121,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Xóa đơn nghỉ phép với dialog xác nhận
   Future<void> _deleteLeaveRequest(AppLeaveRequest leaveRequest) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -148,7 +161,9 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Phê duyệt đơn nghỉ phép với dialog xác nhận
   Future<void> _approveLeaveRequest(AppLeaveRequest leaveRequest) async {
+    // Kiểm tra có employeeId của user hiện tại không
     if (currentUserEmployeeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -202,6 +217,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Từ chối đơn nghỉ phép với dialog xác nhận
   Future<void> _rejectLeaveRequest(AppLeaveRequest leaveRequest) async {
     if (currentUserEmployeeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -254,6 +270,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Xóa tất cả bộ lọc
   void _clearFilters() {
     setState(() {
       _selectedEmployeeId = null;
@@ -262,6 +279,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     _loadLeaveRequests();
   }
 
+  // Chuyển enum trạng thái sang text tiếng Việt
   String _getStatusText(LeaveStatus status) {
     switch (status) {
       case LeaveStatus.pending:
@@ -273,6 +291,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Màu sắc cho từng trạng thái
   Color _getStatusColor(LeaveStatus status) {
     switch (status) {
       case LeaveStatus.pending:
@@ -284,6 +303,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Icon cho từng trạng thái
   IconData _getStatusIcon(LeaveStatus status) {
     switch (status) {
       case LeaveStatus.pending:
@@ -295,6 +315,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     }
   }
 
+  // Tính số ngày nghỉ phép
   int _calculateDays(DateTime start, DateTime end) {
     return end.difference(start).inDays + 1;
   }

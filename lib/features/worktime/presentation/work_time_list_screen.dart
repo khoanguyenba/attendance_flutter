@@ -1,3 +1,6 @@
+// Màn: Danh sách ca làm việc
+// File này hiển thị danh sách ca làm việc, cho phép lọc, làm mới, thêm, sửa, xóa
+// Tất cả comment đều bằng tiếng Việt để dễ hiểu cho người phát triển VN
 import 'package:flutter/material.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/app_work_time.dart';
@@ -7,6 +10,8 @@ import '../../user/domain/usecases/get_current_user_usecase.dart';
 import 'edit_work_time_screen.dart';
 import 'package:go_router/go_router.dart';
 
+// Widget chính cho màn danh sách ca làm việc
+// - Là Stateful vì cần quản lý trạng thái (danh sách, loading, filter, quyền người dùng)
 class WorkTimeListScreen extends StatefulWidget {
   const WorkTimeListScreen({super.key});
 
@@ -15,31 +20,38 @@ class WorkTimeListScreen extends StatefulWidget {
 }
 
 class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
+  // UseCase để lấy trang ca làm việc (phụ thuộc vào DI)
   late final GetPageWorkTimeUseCase _getPageUseCase;
+  // UseCase để xóa ca làm việc
   late final DeleteWorkTimeUseCase _deleteUseCase;
+  // UseCase để lấy người dùng hiện tại (xác định quyền)
   late final GetCurrentUserUseCase _getCurrentUserUseCase;
 
-  List<AppWorkTime> workTimes = [];
-  bool isLoading = false;
-  String? error;
+  // Dữ liệu và trạng thái hiển thị
+  List<AppWorkTime> workTimes = []; // danh sách ca làm việc
+  bool isLoading = false; // đang tải dữ liệu
+  String? error; // lỗi (nếu có)
 
-  // User info
-  bool _canManageWorkTime = false;
+  // Thông tin người dùng hiện tại
+  bool _canManageWorkTime = false; // true nếu user có quyền thêm/sửa/xóa
 
-  // Filter
+  // Bộ lọc: null = tất cả, true = đang hoạt động, false = không hoạt động
   bool? _filterIsActive;
 
   @override
   void initState() {
     super.initState();
+    // Lấy các UseCase từ DI container
     _getPageUseCase = resolve<GetPageWorkTimeUseCase>();
     _deleteUseCase = resolve<DeleteWorkTimeUseCase>();
     _getCurrentUserUseCase = resolve<GetCurrentUserUseCase>();
 
+    // Tải dữ liệu khởi tạo (quyền + danh sách)
     _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
+    // Tải trước quyền người dùng rồi mới tải danh sách ca làm việc
     await _loadUserRole();
     await _loadWorkTimes();
   }
@@ -49,13 +61,14 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
       final currentUser = await _getCurrentUserUseCase.call();
       if (currentUser != null && mounted) {
         setState(() {
+          // Người dùng có quyền quản lý nếu role là admin hoặc manager
           _canManageWorkTime =
               currentUser.role.toLowerCase() == 'admin' ||
               currentUser.role.toLowerCase() == 'manager';
         });
       }
     } catch (e) {
-      // Ignore error, default to false
+      // Nếu gặp lỗi khi lấy user thì bỏ qua và giữ quyền mặc định là false
     }
   }
 
@@ -72,10 +85,12 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
         isActive: _filterIsActive,
       );
       setState(() {
+        // Cập nhật danh sách ca làm việc nhận từ usecase
         workTimes = result;
       });
     } catch (e) {
       setState(() {
+        // Lưu thông báo lỗi để hiển thị lên UI
         error = e.toString();
       });
     } finally {
@@ -86,6 +101,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
   }
 
   Future<void> _deleteWorkTime(AppWorkTime workTime) async {
+    // Hiển thị dialog xác nhận trước khi xóa
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -94,10 +110,12 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
           'Bạn có chắc chắn muốn xóa ca làm việc "${workTime.name}"?',
         ),
         actions: [
+          // Hủy: trả về false
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Hủy'),
           ),
+          // Xóa: trả về true (màu đỏ để nhấn mạnh)
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -109,14 +127,17 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
 
     if (confirmed == true) {
       try {
+        // Gọi usecase để xóa
         await _deleteUseCase.execute(workTime.id);
         if (mounted) {
+          // Thông báo thành công và làm mới danh sách
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Xóa ca làm việc thành công')),
           );
           _loadWorkTimes();
         }
       } catch (e) {
+        // Nếu lỗi khi xóa, hiện snackbar với nội dung lỗi
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -130,14 +151,17 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
     showDialog(
       context: context,
       builder: (context) {
+        // Sử dụng biến tạm để chọn filter trong dialog (không commit ngay)
         bool? tempFilter = _filterIsActive;
         return AlertDialog(
           title: const Text('Lọc ca làm việc'),
+          // StatefulBuilder để quản lý state nội bộ của dialog
           content: StatefulBuilder(
             builder: (context, setState) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Tuỳ chọn: Tất cả
                   RadioListTile<bool?>(
                     title: const Text('Tất cả'),
                     value: null,
@@ -148,6 +172,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
                       });
                     },
                   ),
+                  // Tuỳ chọn: Đang hoạt động
                   RadioListTile<bool?>(
                     title: const Text('Đang hoạt động'),
                     value: true,
@@ -158,6 +183,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
                       });
                     },
                   ),
+                  // Tuỳ chọn: Không hoạt động
                   RadioListTile<bool?>(
                     title: const Text('Không hoạt động'),
                     value: false,
@@ -173,12 +199,14 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
             },
           ),
           actions: [
+            // Hủy: đóng dialog và không thay đổi filter
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
               },
               child: const Text('Hủy'),
             ),
+            // Áp dụng: cập nhật filter và tải lại danh sách
             TextButton(
               onPressed: () {
                 setState(() {
@@ -220,6 +248,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () async {
+                // Chuyển sang màn thêm ca làm việc, nếu kết quả true thì reload
                 final result = await context.push<bool>('/worktimes/new');
                 if (result == true) {
                   _loadWorkTimes();
@@ -254,6 +283,7 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
     }
 
     if (workTimes.isEmpty) {
+      // Nếu không có ca làm việc phù hợp với filter
       return const Center(child: Text('Không có ca làm việc nào'));
     }
 
@@ -336,7 +366,10 @@ class _WorkTimeListScreenState extends State<WorkTimeListScreen> {
                       ],
                       onSelected: (value) async {
                         if (value == 'edit') {
-                          final result = await context.push<bool>('/worktimes/edit/${workTime.id}');
+                          // Điều hướng sang màn sửa; nếu true => refresh
+                          final result = await context.push<bool>(
+                            '/worktimes/edit/${workTime.id}',
+                          );
                           if (result == true) {
                             _loadWorkTimes();
                           }

@@ -1,11 +1,13 @@
+// Màn: Danh sách phòng ban
+// File này hiển thị danh sách phòng ban, cho phép thêm, sửa, xóa phòng ban
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/app_department.dart';
 import '../domain/usecases/get_page_department_usecase.dart';
 import '../domain/usecases/delete_department_usecase.dart';
-import 'edit_department_screen.dart';
 
+// Widget chính cho màn danh sách phòng ban
 class DepartmentListScreen extends StatefulWidget {
   const DepartmentListScreen({super.key});
 
@@ -14,9 +16,11 @@ class DepartmentListScreen extends StatefulWidget {
 }
 
 class _DepartmentListScreenState extends State<DepartmentListScreen> {
+  // UseCase để lấy danh sách và xóa phòng ban
   late final GetPageDepartmentUseCase _getPageUseCase;
   late final DeleteDepartmentUseCase _deleteUseCase;
-  
+
+  // Danh sách phòng ban và trạng thái
   List<AppDepartment> departments = [];
   bool isLoading = false;
   String? error;
@@ -24,12 +28,15 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
   @override
   void initState() {
     super.initState();
+    // Lấy UseCase từ DI
     _getPageUseCase = resolve<GetPageDepartmentUseCase>();
     _deleteUseCase = resolve<DeleteDepartmentUseCase>();
-    
+
+    // Tải danh sách ban đầu
     _loadDepartments();
   }
 
+  // Tải danh sách phòng ban từ API
   Future<void> _loadDepartments() async {
     setState(() {
       isLoading = true;
@@ -37,10 +44,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
     });
 
     try {
-      final result = await _getPageUseCase.call(
-        pageIndex: 1,
-        pageSize: 100,
-      );
+      final result = await _getPageUseCase.call(pageIndex: 1, pageSize: 100);
       setState(() {
         departments = result;
       });
@@ -55,12 +59,16 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
     }
   }
 
+  // Xóa phòng ban với dialog xác nhận
   Future<void> _deleteDepartment(AppDepartment department) async {
+    // Hiển thị dialog xác nhận
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?'),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa phòng ban "${department.name}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -77,18 +85,20 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
 
     if (confirmed == true) {
       try {
+        // Gọi usecase để xóa
         await _deleteUseCase.call(department.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Xóa phòng ban thành công')),
           );
+          // Tải lại danh sách
           _loadDepartments();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
         }
       }
     }
@@ -100,6 +110,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
       appBar: AppBar(
         title: const Text('Danh sách phòng ban'),
         actions: [
+          // Nút thêm phòng ban mới
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () async {
@@ -116,10 +127,12 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
   }
 
   Widget _buildBody() {
+    // Hiển thị loading
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Hiển thị lỗi
     if (error != null) {
       return Center(
         child: Column(
@@ -135,12 +148,12 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
       );
     }
 
+    // Hiển thị thông báo khi không có dữ liệu
     if (departments.isEmpty) {
-      return const Center(
-        child: Text('Không có phòng ban nào'),
-      );
+      return const Center(child: Text('Không có phòng ban nào'));
     }
 
+    // Hiển thị danh sách (có pull-to-refresh)
     return RefreshIndicator(
       onRefresh: _loadDepartments,
       child: ListView.builder(
@@ -154,6 +167,7 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
               subtitle: department.description != null
                   ? Text(department.description!)
                   : null,
+              // Menu sửa/xóa
               trailing: PopupMenuButton(
                 itemBuilder: (context) => [
                   const PopupMenuItem(
@@ -179,7 +193,10 @@ class _DepartmentListScreenState extends State<DepartmentListScreen> {
                 ],
                 onSelected: (value) async {
                   if (value == 'edit') {
-                    final result = await context.push<bool>('/departments/edit/${department.id}');
+                    // Chuyển sang màn sửa
+                    final result = await context.push<bool>(
+                      '/departments/edit/${department.id}',
+                    );
                     if (result == true) {
                       _loadDepartments();
                     }

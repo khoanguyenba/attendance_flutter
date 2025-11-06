@@ -1,3 +1,6 @@
+// Màn: Đăng nhập
+// File này hiển thị form đăng nhập, cho phép người dùng nhập username/password
+// và cấu hình URL API server (settings button ở góc phải trên)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -5,6 +8,7 @@ import '../../../core/di/injection.dart';
 import '../../../core/presentation/authenticated_layout.dart';
 import '../domain/usecases/login_usecase.dart';
 
+// Widget chính cho màn đăng nhập
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -13,26 +17,37 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // UseCase để thực hiện đăng nhập
   late final LoginUseCase _loginUseCase;
+  // Secure storage để lưu base URL
   late final FlutterSecureStorage _secureStorage;
 
+  // Form key cho validation
   final _formKey = GlobalKey<FormState>();
+  // Controller cho input username và password
   final _userNameController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  // Trạng thái hiển thị/ẩn password
   bool _isPasswordVisible = false;
+  // Trạng thái loading khi đang đăng nhập
   bool isLoading = false;
+  // Thông báo lỗi (nếu có)
   String? error;
+  // Base URL hiện tại của API
   String _currentBaseUrl = 'http://localhost:5190';
 
   @override
   void initState() {
     super.initState();
+    // Lấy các dependency từ DI
     _loginUseCase = resolve<LoginUseCase>();
     _secureStorage = resolve<FlutterSecureStorage>();
+    // Tải base URL đã lưu (nếu có)
     _loadBaseUrl();
   }
 
+  // Tải base URL đã lưu từ secure storage
   Future<void> _loadBaseUrl() async {
     final savedUrl = await _secureStorage.read(key: 'base_url');
     if (savedUrl != null && mounted) {
@@ -49,7 +64,9 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Thực hiện đăng nhập
   Future<void> _login() async {
+    // Validate form trước
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -58,12 +75,14 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // Gọi usecase để đăng nhập
       await _loginUseCase.call(
         _userNameController.text,
         _passwordController.text,
       );
 
       if (mounted) {
+        // Đăng nhập thành công, chuyển sang màn attendance
         context.go('/attendance');
       }
     } catch (e) {
@@ -77,6 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Hiển thị dialog cấu hình API URL
   Future<void> _showConfigDialog() async {
     final urlController = TextEditingController(text: _currentBaseUrl);
 
@@ -124,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 return;
               }
 
-              // Validate URL format
+              // Validate URL format (phải bắt đầu bằng http:// hoặc https://)
               if (!newUrl.startsWith('http://') &&
                   !newUrl.startsWith('https://')) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -137,6 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 return;
               }
 
+              // Lưu URL mới vào secure storage
               await _secureStorage.write(key: 'base_url', value: newUrl);
               setState(() {
                 _currentBaseUrl = newUrl;
@@ -162,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Settings button in top right
+            // Nút Settings ở góc phải trên để cấu hình API
             Positioned(
               top: 8,
               right: 8,
@@ -172,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 tooltip: 'Cấu hình API',
               ),
             ),
-            // Main content
+            // Nội dung chính: form đăng nhập
             Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -182,13 +203,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Logo or App Name
+                      // Logo ứng dụng
                       Icon(
                         Icons.business,
                         size: 80,
                         color: Theme.of(context).primaryColor,
                       ),
                       const SizedBox(height: 16),
+                      // Tiêu đề hệ thống
                       Text(
                         'Hệ thống chấm công',
                         textAlign: TextAlign.center,
@@ -205,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 48),
 
-                      // Error message
+                      // Hiển thị thông báo lỗi nếu đăng nhập thất bại
                       if (error != null)
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -232,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                      // Username field
+                      // Trường nhập tên đăng nhập
                       TextFormField(
                         controller: _userNameController,
                         enabled: !isLoading,
@@ -254,7 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Password field
+                      // Trường nhập mật khẩu (có nút show/hide password)
                       TextFormField(
                         controller: _passwordController,
                         enabled: !isLoading,
@@ -289,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Login button
+                      // Nút đăng nhập (hiện loading indicator khi đang xử lý)
                       SizedBox(
                         height: 50,
                         child: ElevatedButton(
@@ -321,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Forgot password (optional)
+                      // Nút quên mật khẩu (optional, có thể bỏ comment nếu cần)
                       TextButton(
                         onPressed: isLoading
                             ? null

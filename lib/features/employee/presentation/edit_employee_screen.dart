@@ -1,3 +1,6 @@
+// Màn: Tạo/Sửa nhân viên
+// File này cho phép tạo mới hoặc chỉnh sửa thông tin nhân viên
+// Bao gồm: mã NV, tên, email, giới tính, phòng ban, trạng thái, quản lý
 import 'package:flutter/material.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/app_employee.dart';
@@ -8,8 +11,9 @@ import '../domain/usecases/get_page_employee_usecase.dart';
 import '../../department/domain/entities/app_department.dart';
 import '../../department/domain/usecases/get_page_department_usecase.dart';
 
+// Widget chính cho màn tạo/sửa nhân viên
 class EditEmployeeScreen extends StatefulWidget {
-  final String? employeeId; // null = create mode, not null = edit mode
+  final String? employeeId; // null = tạo mới, !null = sửa
 
   const EditEmployeeScreen({super.key, this.employeeId});
 
@@ -18,25 +22,30 @@ class EditEmployeeScreen extends StatefulWidget {
 }
 
 class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
+  // UseCase để tạo, cập nhật, lấy nhân viên, lấy danh sách nhân viên và phòng ban
   late final CreateEmployeeUseCase _createUseCase;
   late final UpdateEmployeeUseCase _updateUseCase;
   late final GetEmployeeByIdUseCase _getByIdUseCase;
   late final GetPageEmployeeUseCase _getPageEmployeeUseCase;
   late final GetPageDepartmentUseCase _getDepartmentsUseCase;
 
+  // Form key và controller
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
 
+  // Trạng thái
   bool isLoading = false;
   String? error;
 
+  // Các trường select: giới tính, trạng thái, phòng ban, quản lý
   Gender? _selectedGender;
   EmployeeStatus _selectedStatus = EmployeeStatus.active;
   String? _selectedDepartmentId;
   String? _selectedManagerId;
 
+  // Danh sách phòng ban và nhân viên để chọn
   List<AppDepartment> _departments = [];
   List<AppEmployee> _employees = [];
 
@@ -45,15 +54,18 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   @override
   void initState() {
     super.initState();
+    // Lấy các UseCase từ DI
     _createUseCase = resolve<CreateEmployeeUseCase>();
     _updateUseCase = resolve<UpdateEmployeeUseCase>();
     _getByIdUseCase = resolve<GetEmployeeByIdUseCase>();
     _getPageEmployeeUseCase = resolve<GetPageEmployeeUseCase>();
     _getDepartmentsUseCase = resolve<GetPageDepartmentUseCase>();
 
+    // Tải dữ liệu ban đầu (danh sách phòng ban, nhân viên, và thông tin nhân viên nếu là edit mode)
     _loadInitialData();
   }
 
+  // Tải dữ liệu ban đầu: phòng ban, nhân viên, và thông tin nhân viên (nếu edit mode)
   Future<void> _loadInitialData() async {
     setState(() {
       isLoading = true;
@@ -61,13 +73,13 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     });
 
     try {
-      // Load departments
+      // Load danh sách phòng ban
       final departments = await _getDepartmentsUseCase.call(
         pageIndex: 1,
         pageSize: 100,
       );
 
-      // Load employees for manager selection
+      // Load danh sách nhân viên (để chọn quản lý)
       final employees = await _getPageEmployeeUseCase.call(
         pageIndex: 1,
         pageSize: 100,
@@ -78,7 +90,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         _employees = employees;
       });
 
-      // If edit mode, load employee data
+      // Nếu edit mode, load thông tin nhân viên
       if (isEditMode) {
         await _loadEmployee();
       }
@@ -93,10 +105,12 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     }
   }
 
+  // Tải thông tin nhân viên khi ở chế độ sửa
   Future<void> _loadEmployee() async {
     try {
       final employee = await _getByIdUseCase.call(widget.employeeId!);
       if (employee != null) {
+        // Điền dữ liệu vào form
         _codeController.text = employee.code;
         _fullNameController.text = employee.fullName;
         _emailController.text = employee.email;
@@ -122,9 +136,12 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     super.dispose();
   }
 
+  // Lưu nhân viên (tạo mới hoặc cập nhật)
   Future<void> _saveEmployee() async {
+    // Validate form
     if (!_formKey.currentState!.validate()) return;
 
+    // Kiểm tra đã chọn giới tính
     if (_selectedGender == null) {
       ScaffoldMessenger.of(
         context,
@@ -132,6 +149,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       return;
     }
 
+    // Kiểm tra đã chọn phòng ban
     if (_selectedDepartmentId == null) {
       ScaffoldMessenger.of(
         context,
@@ -146,7 +164,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
 
     try {
       if (isEditMode) {
-        // Update existing employee
+        // Cập nhật nhân viên đã tồn tại
         await _updateUseCase.call(
           id: widget.employeeId!,
           code: _codeController.text,
@@ -158,7 +176,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
           managerId: _selectedManagerId,
         );
       } else {
-        // Create new employee
+        // Tạo nhân viên mới
         await _createUseCase.call(
           code: _codeController.text,
           fullName: _fullNameController.text,
@@ -171,6 +189,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       }
 
       if (mounted) {
+        // Hiện thông báo thành công
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -180,6 +199,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
             ),
           ),
         );
+        // Quay lại và trả về true
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -193,6 +213,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     }
   }
 
+  // Chuyển enum giới tính sang text
   String _getGenderText(Gender gender) {
     switch (gender) {
       case Gender.male:
@@ -202,6 +223,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     }
   }
 
+  // Chuyển enum trạng thái sang text
   String _getStatusText(EmployeeStatus status) {
     switch (status) {
       case EmployeeStatus.active:
@@ -393,8 +415,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                         value: employee.id,
                         child: Text(employee.fullName),
                       );
-                    })
-                    ,
+                    }),
               ],
               onChanged: (value) {
                 setState(() {

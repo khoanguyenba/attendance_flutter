@@ -1,3 +1,6 @@
+// Màn: Chấm công
+// File này cho phép tạo bản ghi chấm công mới (vào/ra)
+// User chọn ca làm việc, loại chấm công, và trạng thái
 import 'package:flutter/material.dart';
 import '../../../core/di/injection.dart';
 import '../domain/entities/attendance_history.dart';
@@ -5,6 +8,7 @@ import '../domain/usecases/create_attendance_history_usecase.dart';
 import '../../worktime/domain/entities/app_work_time.dart';
 import '../../worktime/domain/usecases/get_page_work_time_usecase.dart';
 
+// Widget chính cho màn chấm công
 class CreateAttendanceHistoryScreen extends StatefulWidget {
   const CreateAttendanceHistoryScreen({super.key});
 
@@ -15,30 +19,37 @@ class CreateAttendanceHistoryScreen extends StatefulWidget {
 
 class _CreateAttendanceHistoryScreenState
     extends State<CreateAttendanceHistoryScreen> {
+  // UseCase để tạo bản ghi chấm công và lấy danh sách ca làm việc
   late final CreateAttendanceHistoryUseCase _createUseCase;
   late final GetPageWorkTimeUseCase _getWorkTimesUseCase;
 
   final _formKey = GlobalKey<FormState>();
 
+  // Trạng thái
   bool isLoading = false;
   bool isLoadingData = false;
   String? error;
 
+  // Dữ liệu form: loại chấm công, trạng thái, ca làm việc
   AttendanceType _selectedType = AttendanceType.checkIn;
   AttendanceStatus _selectedStatus = AttendanceStatus.onTime;
   String? _selectedWorkTimeId;
 
+  // Danh sách ca làm việc
   List<AppWorkTime> _workTimes = [];
 
   @override
   void initState() {
     super.initState();
+    // Lấy UseCase từ DI
     _createUseCase = resolve<CreateAttendanceHistoryUseCase>();
     _getWorkTimesUseCase = resolve<GetPageWorkTimeUseCase>();
 
+    // Tải danh sách ca làm việc
     _loadWorkTimes();
   }
 
+  // Tải danh sách ca làm việc (chỉ lấy ca đang hoạt động)
   Future<void> _loadWorkTimes() async {
     setState(() {
       isLoadingData = true;
@@ -48,7 +59,7 @@ class _CreateAttendanceHistoryScreenState
       final workTimes = await _getWorkTimesUseCase.execute(
         pageIndex: 1,
         pageSize: 100,
-        isActive: true, // Only get active work times
+        isActive: true, // Chỉ lấy ca đang hoạt động
       );
 
       setState(() {
@@ -65,9 +76,12 @@ class _CreateAttendanceHistoryScreenState
     }
   }
 
+  // Tạo bản ghi chấm công
   Future<void> _createAttendanceHistory() async {
+    // Validate form
     if (!_formKey.currentState!.validate()) return;
 
+    // Kiểm tra đã chọn ca làm việc
     if (_selectedWorkTimeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng chọn ca làm việc')),
@@ -81,6 +95,7 @@ class _CreateAttendanceHistoryScreenState
     });
 
     try {
+      // Gọi usecase để tạo bản ghi chấm công
       await _createUseCase.call(
         type: _selectedType,
         status: _selectedStatus,
@@ -88,9 +103,11 @@ class _CreateAttendanceHistoryScreenState
       );
 
       if (mounted) {
+        // Hiện thông báo thành công
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Chấm công thành công')));
+        // Quay lại và trả về true
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -104,6 +121,7 @@ class _CreateAttendanceHistoryScreenState
     }
   }
 
+  // Chuyển enum loại chấm công sang text tiếng Việt
   String _getTypeText(AttendanceType type) {
     switch (type) {
       case AttendanceType.checkIn:
@@ -113,6 +131,7 @@ class _CreateAttendanceHistoryScreenState
     }
   }
 
+  // Chuyển enum trạng thái sang text tiếng Việt
   String _getStatusText(AttendanceStatus status) {
     switch (status) {
       case AttendanceStatus.onTime:
@@ -124,6 +143,7 @@ class _CreateAttendanceHistoryScreenState
     }
   }
 
+  // Icon cho từng loại chấm công
   IconData _getTypeIcon(AttendanceType type) {
     switch (type) {
       case AttendanceType.checkIn:

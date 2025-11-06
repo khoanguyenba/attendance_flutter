@@ -1,11 +1,13 @@
+// Màn: Danh sách nhân viên
+// File này hiển thị danh sách nhân viên, cho phép thêm, sửa nhân viên
+// và tạo tài khoản cho nhân viên chưa có tài khoản
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/injection.dart';
-import '../../user/presentation/create_user_screen.dart';
 import '../domain/entities/app_employee.dart';
 import '../domain/usecases/get_page_employee_usecase.dart';
-import 'edit_employee_screen.dart';
 
+// Widget chính cho màn danh sách nhân viên
 class EmployeeListScreen extends StatefulWidget {
   const EmployeeListScreen({super.key});
 
@@ -14,8 +16,10 @@ class EmployeeListScreen extends StatefulWidget {
 }
 
 class _EmployeeListScreenState extends State<EmployeeListScreen> {
+  // UseCase để lấy danh sách nhân viên
   late final GetPageEmployeeUseCase _getPageUseCase;
 
+  // Danh sách nhân viên và trạng thái
   List<AppEmployee> employees = [];
   bool isLoading = false;
   String? error;
@@ -24,10 +28,11 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   void initState() {
     super.initState();
     _getPageUseCase = resolve<GetPageEmployeeUseCase>();
-
+    // Tải danh sách ban đầu
     _loadEmployees();
   }
 
+  // Tải danh sách nhân viên từ API
   Future<void> _loadEmployees() async {
     setState(() {
       isLoading = true;
@@ -50,6 +55,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     }
   }
 
+  // Chuyển enum giới tính sang text tiếng Việt
   String _getGenderText(Gender gender) {
     switch (gender) {
       case Gender.male:
@@ -59,6 +65,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     }
   }
 
+  // Chuyển enum trạng thái sang text tiếng Việt
   String _getStatusText(EmployeeStatus status) {
     switch (status) {
       case EmployeeStatus.active:
@@ -70,6 +77,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     }
   }
 
+  // Màu sắc cho từng trạng thái
   Color _getStatusColor(EmployeeStatus status) {
     switch (status) {
       case EmployeeStatus.active:
@@ -87,6 +95,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       appBar: AppBar(
         title: const Text('Danh sách nhân viên'),
         actions: [
+          // Nút thêm nhân viên mới
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () async {
@@ -103,10 +112,12 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   }
 
   Widget _buildBody() {
+    // Hiển thị loading
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Hiển thị lỗi
     if (error != null) {
       return Center(
         child: Column(
@@ -123,10 +134,12 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       );
     }
 
+    // Hiển thị thông báo khi không có dữ liệu
     if (employees.isEmpty) {
       return const Center(child: Text('Không có nhân viên nào'));
     }
 
+    // Hiển thị danh sách (có pull-to-refresh)
     return RefreshIndicator(
       onRefresh: _loadEmployees,
       child: ListView.builder(
@@ -146,6 +159,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                     children: [
                       Text('Giới tính: ${_getGenderText(employee.gender)}'),
                       const SizedBox(width: 16),
+                      // Badge hiển thị trạng thái
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -167,6 +181,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                       ),
                     ],
                   ),
+                  // Hiển thị nếu nhân viên chưa có tài khoản
                   if (employee.userId == null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -184,6 +199,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Nút tạo tài khoản (chỉ hiện nếu chưa có tài khoản)
                   if (employee.userId == null)
                     IconButton(
                       icon: const Icon(Icons.person_add),
@@ -198,10 +214,13 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                         }
                       },
                     ),
+                  // Nút sửa nhân viên
                   IconButton(
                     icon: const Icon(Icons.edit),
                     onPressed: () async {
-                      final result = await context.push<bool>('/employees/edit/${employee.id}');
+                      final result = await context.push<bool>(
+                        '/employees/edit/${employee.id}',
+                      );
                       if (result == true) {
                         _loadEmployees();
                       }
